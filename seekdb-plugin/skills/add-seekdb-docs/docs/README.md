@@ -37,12 +37,12 @@ OceanBase seekDB is an AI-native search database that:
 mkdir -p .cursor/rules
 
 # Copy all seekDB rules
-cp seekdb/*.mdc .cursor/rules/
+cp docs/*.mdc .cursor/rules/
 
 # Or copy specific files you need
-cp seekdb/seekdb-core.mdc .cursor/rules/
-cp seekdb/seekdb-sql.mdc .cursor/rules/
-cp seekdb/seekdb-python-sdk.mdc .cursor/rules/
+cp docs/seekdb-core.mdc .cursor/rules/
+cp docs/seekdb-sql.mdc .cursor/rules/
+cp docs/seekdb-python-sdk.mdc .cursor/rules/
 ```
 
 2. **Start using in Cursor:**

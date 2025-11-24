@@ -36,7 +36,7 @@ If your files are in a GitHub repository, replace `your-org/ai-rules` with your 
 If files are local, you can use relative paths:
 
 ```json
-"url": "./seekdb/seekdb-core.mdc"
+"url": "./docs/seekdb-core.mdc"
 ```
 
 Or absolute paths:

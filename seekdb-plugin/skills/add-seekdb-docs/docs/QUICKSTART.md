@@ -9,7 +9,7 @@
 ```bash
 # 在项目根目录执行
 mkdir -p .cursor/rules
-cp seekdb/*.mdc .cursor/rules/
+cp docs/*.mdc .cursor/rules/
 ```
 
 2. **验证安装：**

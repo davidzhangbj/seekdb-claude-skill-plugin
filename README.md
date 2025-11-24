@@ -1,10 +1,10 @@
-# seekDB Claude Skill Plugin
+# seekdb Claude Skill Plugin
 
-一个 Claude 技能插件，用于将 OceanBase seekDB 文档引用添加到项目的 AI 文档文件中。让 AI 助手能够访问 seekDB 最佳实践、SQL 语法、Python SDK 模式、向量搜索和混合搜索指南，而无需在项目中存放大量文档文件。
+一个 Claude 技能插件，用于将 OceanBase seekdb 文档引用添加到项目的 AI 文档文件中。让 AI 助手能够访问 seekdb 最佳实践、SQL 语法、Python SDK 模式、向量搜索和混合搜索指南，而无需在项目中存放大量文档文件。
 
 ## 📋 项目简介
 
-`seekdb-claude-skill-plugin` 是一个 Claude 插件，提供了 `add-seekdb-docs` 技能，可以自动将 seekDB 文档引用添加到你的项目 AI 配置文件中（如 `CLAUDE.md`、`AGENTS.md` 或 Cursor 规则文件）。这样，AI 助手就能在开发过程中快速访问 seekDB 相关的知识和最佳实践。
+`seekdb-claude-skill-plugin` 是一个 Claude 插件，提供了 `add-seekdb-docs` 技能，可以自动将 seekdb 文档引用添加到你的项目 AI 配置文件中（如 `CLAUDE.md`、`AGENTS.md` 或 Cursor 规则文件）。这样，AI 助手就能在开发过程中快速访问 seekdb 相关的知识和最佳实践。
 
 ## ✨ 功能特性
 
@@ -21,9 +21,10 @@
 seekdb-claude-skill-plugin/
 ├── .claude-plugin/
 │   └── marketplace.json          # 插件市场配置
-├── seekdb-plugin/
-│   ├── plugin.json               # 插件元数据
-│   └── skills/
+├── seekdb-plugin/                # Claude Code 插件
+│   ├── .claude-plugin/
+│   │   └── plugin.json           # 插件配置
+│   └── skills/                   # 技能目录
 │       └── add-seekdb-docs/      # add-seekdb-docs 技能
 │           ├── SKILL.md          # 技能描述和使用说明
 │           ├── README.md         # 技能详细文档
@@ -46,44 +47,88 @@ seekdb-claude-skill-plugin/
 
 ### 前置要求
 
-- Claude Code 或支持 Claude 插件的环境
+- 已安装 Claude Code
 - 一个使用 seekDB 的项目
 
-### 安装插件
+### Claude Code 用户
 
-1. **克隆或下载此仓库**
+**1. 增加 seekDB 的 marketplace ：**
 
 ```bash
-git clone <repository-url>
+/plugin marketplace add davidzhangbj/seekdb-claude-skill-plugin
+```
+
+**2. 在 Claude Code 中安装插件：**
+```bash
+/plugin install seekdb-plugin@seekdb-marketplace
+```
+
+
+**3. 验证安装：**
+
+询问 Claude Code："你有哪些可用的技能？"
+
+你应该能看到 `add-seekdb-docs` 技能。
+
+**4. 开始使用：**
+
+使用自然语言，技能会自动激活：
+
+```bash
+> 为我的项目添加 seekDB 核心文档
+> 安装 seekDB SQL 语法文档
+> 使用 add-seekdb-docs 技能添加 seekdb-core 文档集
+```
+
+### Cursor 用户
+
+**1. Clone 仓库：**
+
+首先需要 clone 本仓库到本地：
+
+```bash
+git clone https://github.com/davidzhangbj/seekdb-claude-skill-plugin.git
 cd seekdb-claude-skill-plugin
 ```
 
-2. **在 Claude Code 中安装插件**
+**2. 创建规则目录：**
 
-插件会自动从 `.claude-plugin/marketplace.json` 加载。
+在你的项目目录中创建规则目录：
 
-### 使用技能
-
-#### 方式一：通过技能名称调用
-
-在 Claude Code 中执行：
-
-```
-Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
+```bash
+mkdir -p .cursor/rules
 ```
 
-#### 方式二：直接请求
+**3. 复制所需的 `.mdc` 文件：**
 
-在 Claude Code 中直接说：
+从 clone 的仓库中复制所需的文档文件到你的项目：
 
-- "Add seekDB core knowledge to my project"
-- "Install seekDB SQL documentation"
-- "Set up seekDB best practices for my AI assistant"
-- "Add seekDB Python SDK references"
+```bash
+# 示例：复制核心文档和 SQL 语法文档
+cp seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc .cursor/rules/
+cp seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc .cursor/rules/
+```
 
-## 📚 可用的文档集
+**4. 开始编码：**
 
-技能支持安装以下文档集的引用：
+Cursor 会在你引用 seekDB 时自动应用这些规则。
+
+### 其他 AI 工具
+
+将 `.mdc` 文件复制到你的 AI 工具的自定义规则目录。该格式是工具无关的，适用于任何支持上下文规则的 AI 助手。
+
+## 📚 技能参考
+
+<details>
+<summary><strong>Add seekDB Docs</strong> - 安装文档引用</summary>
+
+将 seekDB 最佳实践添加到项目的 AI 配置文件中：
+
+- CLAUDE.md
+- AGENTS.md
+- Cursor 规则文件
+
+**可用的文档集：**
 
 | 文档集 | 说明 | 适用场景 |
 |--------|------|----------|
@@ -96,11 +141,28 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 | `seekdb-ai-functions` | AI 函数使用 | 使用内置 AI 功能（嵌入、补全、重排序等） |
 | `seekdb-all` | 完整文档集 | 安装所有 seekDB 文档引用 |
 
+**使用示例：**
+
+```bash
+# 通过技能名称调用
+Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
+
+# 或直接请求
+Add seekDB core knowledge to my project
+Install seekDB SQL documentation
+Set up seekDB best practices for my AI assistant
+Add seekDB Python SDK references
+```
+
+</details>
+
 ## ⚙️ 配置说明
 
 ### 更新文档 URL
 
 在使用技能之前，**必须**更新 `skill-knowledge-map.json` 中的 URL，使其指向实际的文档位置。
+
+**配置文件位置：** `seekdb-plugin/skills/add-seekdb-docs/skill-knowledge-map.json`
 
 #### 选项 1: GitHub 仓库
 
@@ -110,7 +172,7 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 {
   "seekdb-core": {
     "files": [{
-      "url": "https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-core.mdc"
+      "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"
     }]
   }
 }
@@ -118,13 +180,13 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 
 #### 选项 2: 本地文件
 
-如果文档在本地：
+如果文档在本地，使用相对路径：
 
 ```json
 {
   "seekdb-core": {
     "files": [{
-      "url": "./seekdb/seekdb-core.mdc"
+      "url": "./docs/seekdb-core.mdc"
     }]
   }
 }
@@ -136,7 +198,7 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 {
   "seekdb-core": {
     "files": [{
-      "url": "/path/to/seekdb/seekdb-core.mdc"
+      "url": "/path/to/docs/seekdb-core.mdc"
     }]
   }
 }
@@ -155,7 +217,7 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 ```markdown
 ## Resources & References
 
-- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-core.mdc
+- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
 ```
 
 ### 示例 2: 添加完整文档集
@@ -165,13 +227,13 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 ```markdown
 ## Resources & References
 
-- **Core guidelines and overview**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-core.mdc
-- **Complete SQL syntax reference**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-sql.mdc
-- **Python SDK usage guide**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-python-sdk.mdc
-- **Vector search and similarity operations**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-vector-search.mdc
-- **Hybrid search patterns**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-hybrid-search.mdc
-- **Built-in AI functions**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-ai-functions.mdc
-- **Hybrid vector index (semantic index) that automatically converts text to vectors**: https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-hybrid-vector-index.mdc
+- **Core guidelines and overview**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **Complete SQL syntax reference**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
+- **Python SDK usage guide**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-python-sdk.mdc
+- **Vector search and similarity operations**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-vector-search.mdc
+- **Hybrid search patterns**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-search.mdc
+- **Built-in AI functions**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-ai-functions.mdc
+- **Hybrid vector index (semantic index) that automatically converts text to vectors**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-vector-index.mdc
 ```
 
 ## 🔧 工作流程
@@ -234,6 +296,38 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 4. 检查 AI 助手是否能访问引用的文件
 
 ### 测试示例
+
+在添加文档引用后，尝试以下提示：
+
+```
+帮我创建一个 seekDB 的表，用于存储文档和向量嵌入
+```
+
+AI 应该能够根据引用的文档生成正确的 seekDB SQL 代码。
+
+## ❓ 常见问题
+
+**什么是 .mdc 文件？**
+
+Markdown Context 文件，为 AI 工具提供指导。它们包含最佳实践和模式，AI 助手在生成代码时会自动应用。
+
+**我可以只使用特定规则而不安装完整插件吗？**
+
+可以！将单个 `.mdc` 文件复制到你的 AI 工具规则目录。每个文件都是自包含的，不需要依赖项。
+
+**如何添加或更新规则？**
+
+创建新的 `.mdc` 文件或编辑现有文件。AI 工具会自动使用更新后的内容。
+
+**技能可以在 Cursor 中使用吗？**
+
+技能是 Claude Code 特定的。对于 Cursor，请使用 `.mdc` 上下文规则文件。
+
+**我可以在 ChatGPT 或其他 AI 工具中使用这些规则吗？**
+
+可以！`.mdc` 文件适用于任何支持自定义上下文规则的 AI 助手。将它们复制到工具的配置目录。
+
+**如何验证技能是否正常工作？**
 
 在添加文档引用后，尝试以下提示：
 

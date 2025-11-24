@@ -1,0 +1,631 @@
+---
+description: Use these rules when working with seekDB built-in AI functions for embedding generation, text completion, and reranking
+globs: *.sql, *.py
+alwaysApply: false
+---
+
+# seekDB AI Functions Guidelines
+
+## Overview
+
+seekDB provides built-in AI functions that enable in-database AI workflows, including embedding generation, text completion, and reranking. These functions integrate seamlessly with SQL queries, enabling complete RAG workflows within the database.
+
+AI functions integrate AI model capabilities directly into data processing within the database through SQL expressions. They greatly simplify operations such as data extraction, analysis, summarization, and storage using AI large models. seekDB provides comprehensive AI model and endpoint management through the `DBMS_AI_SERVICE` package, and includes multiple built-in AI function expressions, while supporting monitoring of AI model calls through views.
+
+Core AI functions:
+- `AI_EMBED`: Converts text data to vector data by calling an embedding model.
+- `AI_COMPLETE`: Processes prompts and data information by calling a specified text generation large model and parses the processing results.
+- `AI_PROMPT`: Organizes prompt templates and dynamic data into JSON format, which can be used directly in the `AI_COMPLETE` function to replace the `prompt` parameter.
+- `AI_RERANK`: Ranks text by similarity according to prompts by calling a rerank model.
+
+## AI Service Management
+
+### Registering AI Models and Endpoints
+
+Before using AI functions, you need to register AI models and endpoints using the `DBMS_AI_SERVICE` package.
+
+```sql
+-- Register embedding model
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL ('ob_embed');
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT ('ob_embed_endpoint');
+
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL(
+'ob_embed', '{
+    "type": "dense_embedding",
+    "model_name": "BAAI/bge-m3"
+}');
+
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT (
+'ob_embed_endpoint', '{
+    "ai_model_name": "ob_embed",
+    "url": "https://api.siliconflow.cn/v1/embeddings",
+    "access_key": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "provider": "siliconflow"
+}');
+
+-- Register text generation model
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL ('ob_complete');
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT ('ob_complete_endpoint');
+
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL(
+'ob_complete', '{
+    "type": "completion",
+    "model_name": "THUDM/GLM-4-9B-0414"
+}');
+
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT (
+'ob_complete_endpoint', '{
+    "ai_model_name": "ob_complete",
+    "url": "https://api.siliconflow.cn/v1/chat/completions",
+    "access_key": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "provider": "siliconflow"
+}');
+
+-- Register rerank model
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL ('ob_rerank');
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT ('ob_rerank_endpoint');
+
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL(
+'ob_rerank', '{
+    "type": "rerank",
+    "model_name": "BAAI/bge-reranker-v2-m3"
+}');
+
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT (
+'ob_rerank_endpoint', '{
+    "ai_model_name": "ob_rerank",
+    "url": "https://api.siliconflow.cn/v1/rerank",
+    "access_key": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "provider": "siliconflow"
+}');
+```
+
+### Managing Models and Endpoints
+
+```sql
+-- Drop model and endpoint
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL ('ob_embed');
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT ('ob_embed_endpoint');
+
+-- View AI model information and call status through views
+-- (See AI model call monitoring section in documentation)
+```
+
+## Embedding Generation
+
+### AI_EMBED Function
+
+`AI_EMBED` can convert text to vectors for vector retrieval. This is a fundamental step in vector retrieval, converting text data into high-dimensional vector representations for similarity calculations.
+
+```sql
+-- Basic embedding generation (using registered model name)
+SELECT AI_EMBED("ob_embed", "Hello world") AS embedding;
+
+-- The expected result is a vector array, such as [0.1, 0.2, 0.3]
+
+-- Generate embedding and store in table
+CREATE TABLE knowledge_base (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255),
+    content TEXT,
+    embedding TEXT
+);
+
+INSERT INTO knowledge_base (title, content) VALUES
+    ('seekdb Introduction', 'seekdb is a powerful database system that supports vector retrieval and AI functions.'),
+    ('Vector Retrieval', 'Vector retrieval can be used for semantic search to find similar content.'),
+    ('AI Functions', 'AI functions can directly call AI models in SQL.');
+
+-- Batch embedding generation for existing data
+UPDATE knowledge_base 
+SET embedding = AI_EMBED("ob_embed", content);
+
+-- Generate embedding for new rows
+INSERT INTO knowledge_base (title, content, embedding)
+VALUES (
+    'Machine learning is a subset of AI',
+    'Machine learning is a subset of AI',
+    AI_EMBED("ob_embed", 'Machine learning is a subset of AI')
+);
+
+-- Query with embedding generation
+SELECT 
+    id,
+    content,
+    AI_EMBED("ob_embed", content) as embedding
+FROM raw_documents;
+```
+
+### Embedding in Python
+
+```python
+from seekdb import SeekDBClient
+
+client = SeekDBClient(connection_string=os.getenv('SEEKDB_URL'))
+
+# Generate embedding using registered model
+result = client.query_one("""
+    SELECT AI_EMBED("ob_embed", ?) as embedding
+""", ["Sample text to embed"])
+
+embedding = result['embedding']
+
+# Use in insert
+client.execute("""
+    INSERT INTO documents (content, embedding)
+    VALUES (?, AI_EMBED("ob_embed", ?))
+""", ["Sample text", "Sample text"])
+
+# Batch processing
+documents = ["Text 1", "Text 2", "Text 3"]
+for doc in documents:
+    client.execute("""
+        INSERT INTO documents (content, embedding)
+        VALUES (?, AI_EMBED("ob_embed", ?))
+    """, [doc, doc])
+```
+
+## Text Completion
+
+### AI_COMPLETE Function
+
+`AI_COMPLETE` can directly call large language models in SQL to implement text generation, translation, analysis, and other functions.
+
+```sql
+-- Basic text completion using registered model
+SELECT AI_COMPLETE("ob_complete", "What is machine learning?") AS answer;
+
+-- Using AI_PROMPT to organize prompt templates
+SELECT AI_COMPLETE("ob_complete", 
+    AI_PROMPT('Your task is to perform sentiment analysis on the provided text and determine whether its emotional tendency is positive or negative.
+    The following is the text to be analyzed:
+    <text>
+    {0}
+    </text>
+    The judgment criteria are as follows:
+    If the text expresses positive emotions, output 1; if the text expresses negative emotions, output -1. Do not output anything else.', 
+    'The weather is really good.')) AS sentiment;
+
+-- Result example:
+-- +----------+
+-- | sentiment|
+-- +----------+
+-- | 1        |
+-- +----------+
+```
+
+### AI_PROMPT Function
+
+`AI_PROMPT` organizes prompt templates and dynamic data into JSON format, which can be used directly in the `AI_COMPLETE` function to replace the `prompt` parameter.
+
+```sql
+-- AI_PROMPT with single placeholder
+SELECT AI_COMPLETE("ob_complete",
+    AI_PROMPT('Summarize the following text: {0}', 'Long text content here...')) AS summary;
+
+-- AI_PROMPT with multiple placeholders
+SELECT AI_COMPLETE("ob_complete",
+    AI_PROMPT('Context: {0}\n\nQuestion: {1}\n\nAnswer:', 
+        'Machine learning is a subset of AI...', 
+        'What is machine learning?')) AS answer;
+
+-- Using variables with AI_PROMPT
+SET @context = 'seekdb is a powerful database system that supports vector retrieval and AI functions.';
+SET @question = 'What is seekdb?';
+
+SELECT AI_COMPLETE("ob_complete",
+    AI_PROMPT('Based on the following document content, answer the user''s question.
+    User question: {0}
+    
+    Relevant document: {1}
+    
+    Please answer the user''s question concisely and accurately based on the above document content.', 
+    @question, @context)) AS answer;
+```
+
+### RAG Workflow with AI_COMPLETE
+
+```sql
+-- Complete RAG workflow in SQL using AI_PROMPT
+SET @query = "What is vector retrieval?";
+SET @query_vector = AI_EMBED("ob_embed", @query);
+
+-- Retrieve relevant documents (simplified example)
+SET @candidate_docs = '["seekdb is a powerful database system that supports vector retrieval and AI functions.", "Vector retrieval can be used for semantic search to find similar content."]';
+
+-- Generate answer using AI_PROMPT
+SELECT AI_COMPLETE("ob_complete",
+    AI_PROMPT('Based on the following document content, answer the user''s question.
+    User question: {0}
+    
+    Relevant document: {1}
+    
+    Please answer the user''s question concisely and accurately based on the above document content.', 
+    @query, 
+    CAST(JSON_EXTRACT(@candidate_docs, '$[1]') AS CHAR))) AS answer;
+```
+
+### Python Text Completion
+
+```python
+# Simple completion using registered model
+result = client.query_one("""
+    SELECT AI_COMPLETE("ob_complete", ?) as answer
+""", ["What is machine learning?"])
+
+print(result['answer'])
+
+# Using AI_PROMPT in Python
+result = client.query_one("""
+    SELECT AI_COMPLETE("ob_complete",
+        AI_PROMPT('Summarize the following text: {0}', ?)) AS summary
+""", ["Long text content here..."])
+
+# RAG workflow with AI_PROMPT
+def rag_query(client, user_question, top_k=5):
+    # 1. Generate query embedding
+    query_embed_result = client.query_one("""
+        SELECT AI_EMBED("ob_embed", ?) as embedding
+    """, [user_question])
+    query_embedding = query_embed_result['embedding']
+    
+    # 2. Retrieve context
+    context_results = client.query("""
+        SELECT content
+        FROM documents
+        WHERE VECTOR_DISTANCE(embedding, ?) > 0.7
+        ORDER BY VECTOR_DISTANCE(embedding, ?) DESC
+        LIMIT ?
+    """, [query_embedding, query_embedding, top_k])
+    
+    # 3. Build context
+    context = "\n\n".join([row['content'] for row in context_results])
+    
+    # 4. Generate answer using AI_PROMPT
+    result = client.query_one("""
+        SELECT AI_COMPLETE("ob_complete",
+            AI_PROMPT('Based on the following document content, answer the user''s question.
+            User question: {0}
+            
+            Relevant document: {1}
+            
+            Please answer the user''s question concisely and accurately based on the above document content.', 
+            ?, ?)) AS answer
+    """, [user_question, context])
+    
+    return result['answer']
+```
+
+## Reranking
+
+### AI_RERANK Function
+
+`AI_RERANK` can intelligently rerank retrieval results, reordering document lists by relevance to query terms. Reranking can significantly improve the accuracy of retrieval results, especially suitable for RAG scenarios.
+
+```sql
+-- Basic reranking with query and document array
+SELECT AI_RERANK("ob_rerank", "Apple", '["apple", "banana", "fruit", "vegetable"]') AS ranked_results;
+
+-- Result example:
+-- +--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+-- | ranked_results                                                                                                                                                   |
+-- +--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+-- | [{"index": 0, "relevance_score": 0.9911285638809204}, {"index": 1, "relevance_score": 0.0030552432872354984}, {"index": 2, "relevance_score": 0.0003349370090290904}, {"index": 3, "relevance_score": 0.00001892922773549799}] |
+-- +--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+-- Using variables for reranking
+SET @query = "What is vector retrieval?";
+SET @candidate_docs = '["seekdb is a powerful database system that supports vector retrieval and AI functions.", "Vector retrieval can be used for semantic search to find similar content."]';
+
+SELECT AI_RERANK("ob_rerank", @query, @candidate_docs) AS ranked_results;
+
+-- Result shows index (document index) and relevance_score (relevance score)
+-- [{"index": 1, "relevance_score": 0.9904329776763916}, {"index": 0, "relevance_score": 0.16993996500968933}]
+```
+
+### Hybrid Search with Reranking
+
+```sql
+-- Two-stage retrieval: vector search + reranking
+SET @query = "What is vector retrieval?";
+SET @query_vector = AI_EMBED("ob_embed", @query);
+
+-- First stage: Vector retrieval to get candidate documents
+-- (Assuming you have a documents table with embeddings)
+-- Then rerank the results
+SET @candidate_docs = '["Document 1 content...", "Document 2 content...", "Document 3 content..."]';
+
+SELECT AI_RERANK("ob_rerank", @query, @candidate_docs) AS ranked_results;
+```
+
+### Python Reranking
+
+```python
+import json
+
+# Rerank search results using document array
+def rerank_results(client, query, candidate_docs):
+    # Convert list to JSON string array format
+    docs_json = json.dumps(candidate_docs)
+    
+    result = client.query_one("""
+        SELECT AI_RERANK("ob_rerank", ?, ?) as ranked_results
+    """, [query, docs_json])
+    
+    # Parse the ranked results
+    ranked_results = json.loads(result['ranked_results'])
+    
+    # Sort by relevance_score and return with original documents
+    ranked_results.sort(key=lambda x: x['relevance_score'], reverse=True)
+    
+    return [
+        {
+            'index': item['index'],
+            'content': candidate_docs[item['index']],
+            'relevance_score': item['relevance_score']
+        }
+        for item in ranked_results
+    ]
+
+# Example usage
+query = "What is vector retrieval?"
+candidate_docs = [
+    "seekdb is a powerful database system that supports vector retrieval and AI functions.",
+    "Vector retrieval can be used for semantic search to find similar content."
+]
+
+reranked = rerank_results(client, query, candidate_docs)
+```
+
+## Advanced Patterns
+
+### Multi-Model Workflow
+
+```sql
+-- Use different models for different tasks
+-- Step 1: Generate embeddings
+UPDATE knowledge_base 
+SET embedding = AI_EMBED("ob_embed", content)
+WHERE embedding IS NULL;
+
+-- Step 2: Rerank documents
+SET @query = "What is vector retrieval?";
+SET @candidate_docs = '["Document 1", "Document 2", "Document 3"]';
+SET @ranked = AI_RERANK("ob_rerank", @query, @candidate_docs);
+
+-- Step 3: Generate summaries using AI_COMPLETE
+SELECT 
+    id,
+    content,
+    AI_COMPLETE("ob_complete",
+        AI_PROMPT('Summarize the following text: {0}', content)) AS summary
+FROM knowledge_base
+LIMIT 10;
+```
+
+### Caching Embeddings
+
+```sql
+-- Check if embedding exists before generating
+UPDATE knowledge_base 
+SET embedding = AI_EMBED("ob_embed", content)
+WHERE embedding IS NULL OR embedding = '';
+
+-- Or use COALESCE for conditional generation
+INSERT INTO documents (content, embedding)
+SELECT 
+    content,
+    COALESCE(
+        (SELECT embedding FROM document_cache WHERE content = raw_documents.content),
+        AI_EMBED("ob_embed", content)
+    ) as embedding
+FROM raw_documents
+WHERE NOT EXISTS (
+    SELECT 1 FROM documents WHERE documents.content = raw_documents.content
+);
+```
+
+### Error Handling
+
+```sql
+-- Handle AI function errors gracefully
+SELECT 
+    id,
+    content,
+    CASE 
+        WHEN AI_EMBED("ob_embed", content) IS NULL 
+        THEN 'Error generating embedding'
+        ELSE 'Success'
+    END as status
+FROM documents;
+```
+
+## Best Practices
+
+### 1. Model and Endpoint Registration
+
+- Register models and endpoints once at database initialization
+- Store API keys securely (use environment variables or secure storage)
+- Use consistent model names across queries (e.g., "ob_embed", "ob_complete", "ob_rerank")
+- Replace all `access_key` values with actual API keys before use
+
+### 2. Embedding Generation
+
+- Cache embeddings to avoid redundant API calls
+- Use `UPDATE` statements to batch generate embeddings for existing data
+- Store embeddings in the database for reuse
+- Use appropriate embedding models for your use case (e.g., "BAAI/bge-m3")
+
+### 3. Text Completion
+
+- Use `AI_PROMPT` function for prompt templates and consistency
+- Include context in prompts for better results
+- Organize prompt templates with placeholders using `{0}`, `{1}`, etc.
+- Use `AI_PROMPT` to replace the `prompt` parameter in `AI_COMPLETE`
+
+### 4. Reranking
+
+- Use reranking as a second stage after initial retrieval
+- Rerank top 50-100 results, not all results
+- Pass document arrays in JSON string format to `AI_RERANK`
+- Parse rerank results to get `index` and `relevance_score`
+
+### 5. Cost Management
+
+- Cache expensive AI function results in database columns
+- Use cheaper models for initial retrieval
+- Use expensive models only for final generation
+- Monitor AI model calls through views (see AI model call monitoring section)
+
+### 6. Error Handling
+
+```python
+# Handle AI function errors in Python
+try:
+    result = client.query_one("""
+        SELECT AI_EMBED("ob_embed", ?) as embedding
+    """, [text])
+    
+    if result['embedding'] is None:
+        # Fallback to alternative method
+        embedding = generate_embedding_locally(text)
+    else:
+        embedding = result['embedding']
+        
+except Exception as e:
+    print(f"Error generating embedding: {e}")
+    # Handle error appropriately
+```
+
+### 7. Complete Workflow Pattern
+
+- Step 1: Generate embeddings for knowledge base
+- Step 2: Perform vector retrieval to get candidate documents
+- Step 3: Rerank results using `AI_RERANK`
+- Step 4: Generate answers using `AI_COMPLETE` with `AI_PROMPT`
+
+## Complete RAG Example
+
+### Building an Intelligent Q&A System
+
+Combine the three AI functions to build a simple intelligent Q&A system in three steps.
+
+#### Step 1: Prepare data and generate vectors
+
+```sql
+CREATE TABLE knowledge_base (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255),
+    content TEXT,
+    embedding TEXT
+);
+
+INSERT INTO knowledge_base (title, content) VALUES
+    ('seekdb Introduction', 'seekdb is a powerful database system that supports vector retrieval and AI functions.'),
+    ('Vector Retrieval', 'Vector retrieval can be used for semantic search to find similar content.'),
+    ('AI Functions', 'AI functions can directly call AI models in SQL.');
+
+UPDATE knowledge_base 
+SET embedding = AI_EMBED("ob_embed", content);
+```
+
+#### Step 2: Vector retrieval and reranking
+
+```sql
+SET @query = "What is vector retrieval?";
+SET @query_vector = AI_EMBED("ob_embed", @query);
+
+-- Directly construct a document list in string array format
+SET @candidate_docs = '["seekdb is a powerful database system that supports vector retrieval and AI functions.", "Vector retrieval can be used for semantic search to find similar content."]';
+
+SELECT AI_RERANK("ob_rerank", @query, @candidate_docs) AS ranked_results;
+```
+
+#### Step 3: Generate answers
+
+```sql
+SELECT AI_COMPLETE("ob_complete",
+    AI_PROMPT('Based on the following document content, answer the user''s question.
+    User question: {0}
+    
+    Relevant document: {1}
+    
+    Please answer the user''s question concisely and accurately based on the above document content.', 
+    @query, 
+    CAST(JSON_EXTRACT(@candidate_docs, '$[1]') AS CHAR))) AS answer;
+```
+
+### Complete RAG Workflow in Python
+
+```python
+import json
+
+def complete_rag_workflow(client, user_query):
+    """Complete RAG workflow using seekDB AI functions"""
+    
+    # 1. Generate query embedding
+    query_embed_result = client.query_one("""
+        SELECT AI_EMBED("ob_embed", ?) as embedding
+    """, [user_query])
+    query_embedding = query_embed_result['embedding']
+    
+    # 2. Vector search (simplified - in practice, use VECTOR_DISTANCE)
+    initial_results = client.query("""
+        SELECT 
+            id,
+            content
+        FROM knowledge_base
+        WHERE VECTOR_DISTANCE(embedding, ?) > 0.6
+        ORDER BY VECTOR_DISTANCE(embedding, ?) DESC
+        LIMIT 10
+    """, [query_embedding, query_embedding])
+    
+    # 3. Prepare candidate documents for reranking
+    candidate_docs = [row['content'] for row in initial_results]
+    docs_json = json.dumps(candidate_docs)
+    
+    # 4. Rerank
+    rerank_result = client.query_one("""
+        SELECT AI_RERANK("ob_rerank", ?, ?) as ranked_results
+    """, [user_query, docs_json])
+    
+    ranked_data = json.loads(rerank_result['ranked_results'])
+    ranked_data.sort(key=lambda x: x['relevance_score'], reverse=True)
+    
+    # 5. Get top results
+    top_results = [
+        {
+            **initial_results[item['index']],
+            'relevance_score': item['relevance_score']
+        }
+        for item in ranked_data[:5]
+    ]
+    
+    # 6. Generate answer using AI_PROMPT
+    context = top_results[0]['content'] if top_results else ""
+    answer_result = client.query_one("""
+        SELECT AI_COMPLETE("ob_complete",
+            AI_PROMPT('Based on the following document content, answer the user''s question.
+            User question: {0}
+            
+            Relevant document: {1}
+            
+            Please answer the user''s question concisely and accurately based on the above document content.', 
+            ?, ?)) AS answer
+    """, [user_query, context])
+    
+    return {
+        'answer': answer_result['answer'],
+        'sources': top_results
+    }
+```
+
+## Resources
+
+- AI Functions Documentation: https://www.oceanbase.ai/docs/experience-ai-function
+- Service Registration: See DBMS_AI_SERVICE package documentation
+- Model Compatibility: Check official documentation for supported models
+- AI Model Call Monitoring: View and monitor AI model information and call status through views
+- Vector Search: Experience vector search features
+- Hybrid Search: Experience hybrid search features
+- Hybrid Vector Index: Experience hybrid vector index to simplify vector search processes

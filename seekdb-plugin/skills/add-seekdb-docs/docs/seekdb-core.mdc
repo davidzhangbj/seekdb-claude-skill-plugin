@@ -1,0 +1,327 @@
+---
+description: Use these rules when working with OceanBase seekDB, an AI-native search database that unifies relational, vector, text, JSON and GIS in a single engine
+globs: *.sql, *.ts, *.tsx, *.js, *.jsx, *.py
+alwaysApply: false
+---
+
+# OceanBase seekDB Core Guidelines
+
+## Overview
+
+OceanBase seekDB (referred to as seekDB) is an AI-native search database that unifies relational, vector, text, JSON and GIS in a single engine, enabling hybrid search and in-database AI workflows.
+
+### Key Capabilities
+
+- **Multi-model data**: Supports relational, vector, text, JSON, and GIS data in a single engine
+- **Hybrid search**: Combines vector search, full-text search, and relational queries in a single SQL statement
+- **MySQL compatibility**: Fully compatible with MySQL syntax and drivers
+- **Embedded mode**: Can be embedded directly into Python applications
+- **Client/Server mode**: Supports standalone and distributed deployments
+- **AI functions**: Built-in AI capabilities for embedding, reranking, and LLM inference
+- **Full ACID transactions**: Supports transactions with MVCC
+
+## Deployment Modes
+
+### Embedded Mode
+
+seekDB can be embedded directly into Python applications, making it ideal for individual developers and lightweight deployments.
+
+```python
+from seekdb import SeekDB
+
+# Initialize embedded seekDB
+db = SeekDB(path="./seekdb_data")
+```
+
+### Client/Server Mode
+
+For production deployments, seekDB supports client/server architecture with MySQL protocol compatibility.
+
+```python
+from seekdb import SeekDBClient
+
+# Connect to seekDB server
+client = SeekDBClient(
+    host="localhost",
+    port=3306,
+    user="root",
+    password="password",
+    database="mydb"
+)
+```
+
+## Connection String Format
+
+seekDB uses MySQL-compatible connection strings:
+
+```
+SEEKDB_URL="mysql://[user]:[password]@[host]:[port]/[database]"
+```
+
+Or using standard MySQL format:
+
+```
+SEEKDB_URL="mysql+pymysql://user:password@host:port/database"
+```
+
+## Basic Setup
+
+### Python Installation
+
+```bash
+pip install seekdb
+```
+
+### Environment Variables
+
+Always use environment variables for connection strings:
+
+```python
+import os
+from seekdb import SeekDBClient
+
+connection_string = os.getenv('SEEKDB_URL')
+client = SeekDBClient(connection_string=connection_string)
+```
+
+## Core Features
+
+### 1. Relational Data
+
+seekDB supports full SQL with MySQL compatibility:
+
+```sql
+-- Create table
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert data
+INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com');
+
+-- Query data
+SELECT * FROM users WHERE email = 'alice@example.com';
+```
+
+### 2. Vector Data
+
+Store and search high-dimensional vectors:
+
+```sql
+-- Create table with vector column
+CREATE TABLE documents (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    content TEXT,
+    embedding VECTOR(1536)  -- 1536-dimensional vector
+);
+
+-- Create vector index
+CREATE INDEX idx_embedding ON documents USING VECTOR(embedding) 
+WITH (type='HNSW', m=16, ef_construction=200);
+```
+
+### 3. Full-Text Search
+
+Built-in full-text indexing with BM25 ranking:
+
+```sql
+-- Create full-text index
+CREATE FULLTEXT INDEX idx_content ON documents(content);
+
+-- Full-text search
+SELECT * FROM documents 
+WHERE MATCH(content) AGAINST('search query' IN NATURAL LANGUAGE MODE);
+```
+
+### 4. JSON Data
+
+Native JSON support with indexing:
+
+```sql
+-- Create table with JSON column
+CREATE TABLE products (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    metadata JSON,
+    INDEX idx_metadata ((CAST(metadata->'$.category' AS CHAR(50))))
+);
+
+-- Query JSON
+SELECT * FROM products WHERE metadata->'$.category' = 'electronics';
+```
+
+### 5. Hybrid Search
+
+Hybrid search combines vector-based semantic retrieval and full-text index-based keyword retrieval through the `DBMS_HYBRID_SEARCH` system package. It provides more accurate and comprehensive results by leveraging both semantic similarity and keyword matching.
+
+**Pure vector search** - Find semantically relevant content:
+```sql
+SET @parm = '{
+    "knn" : {
+        "field": "embedding", 
+        "k": 3, 
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+**Pure full-text search** - Find content by keyword matching:
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords"
+        }
+    }
+}';
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+**Hybrid search** - Combine keyword matching and semantic understanding:
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords",
+            "boost": 2.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.0
+    }
+}';
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+The final `_score` is calculated by combining keyword matching score and semantic similarity score. Use the `boost` parameter to adjust the weight ratio between full-text search and vector search.
+
+## Best Practices
+
+### 1. Connection Management
+
+- Use connection pooling for server mode
+- Close connections properly to avoid resource leaks
+- Use environment variables for credentials
+
+### 2. Index Strategy
+
+- Create vector indexes for high-dimensional data (HNSW for memory, IVF for disk)
+- Use full-text indexes for text search
+- Use hybrid vector indexes (semantic indexes) on VARCHAR columns to automatically convert text to vectors and build indexes, eliminating the need for manual vectorization. Specify the embedding model and vector dimension when creating the index (supports HNSW/HNSW_BQ index types)
+- For hybrid search scenarios, create both vector indexes and full-text indexes on the same table
+- Index JSON fields that are frequently queried
+
+### 3. Query Optimization
+
+- Use parameterized queries to prevent SQL injection
+- Leverage hybrid search for better recall in RAG scenarios
+- Push down relational filters to storage layer
+- Use appropriate distance metrics for vectors (cosine, euclidean, inner product)
+
+### 4. AI Functions
+
+- Use built-in AI functions for embedding and reranking
+- Register external LLM services via `DBMS_AI_SERVICE`
+- Cache embeddings when possible
+- Use prompt templates for consistent AI responses
+
+## Common Patterns
+
+### Pattern 1: RAG Workflow
+
+```python
+# 1. Store documents with embeddings
+client.execute("""
+    INSERT INTO documents (content, embedding) 
+    VALUES (?, AI_EMBED(?))
+""", [text_content, text_content])
+
+# 2. Hybrid search
+results = client.query("""
+    SELECT content, 
+           VECTOR_DISTANCE(embedding, ?) as score
+    FROM documents
+    WHERE MATCH(content) AGAINST(?)
+    ORDER BY score ASC
+    LIMIT 5
+""", [query_embedding, query_text])
+
+# 3. Generate response with AI
+response = client.query("""
+    SELECT AI_COMPLETE(?, ?) as answer
+""", [prompt_template, context])
+```
+
+### Pattern 2: Semantic Search
+
+```sql
+-- Find similar items using vector search
+SELECT 
+    id,
+    name,
+    VECTOR_DISTANCE(embedding, ?) as distance
+FROM products
+WHERE VECTOR_DISTANCE(embedding, ?) < 0.5
+ORDER BY distance ASC
+LIMIT 10;
+```
+
+### Pattern 3: Multi-table Join with Search
+
+```sql
+-- Join relational data with vector search
+SELECT 
+    u.name,
+    d.content,
+    VECTOR_DISTANCE(d.embedding, ?) as relevance
+FROM users u
+JOIN documents d ON u.id = d.user_id
+WHERE 
+    u.status = 'active' AND
+    VECTOR_DISTANCE(d.embedding, ?) < 0.8
+ORDER BY relevance ASC;
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+**Problem**: Cannot connect to seekDB server
+**Solution**: 
+- Verify connection string format
+- Check if server is running
+- Verify network connectivity and firewall settings
+- Check user permissions
+
+### Vector Index Issues
+
+**Problem**: Vector search is slow
+**Solution**:
+- Ensure vector index is created
+- Use appropriate index type (HNSW for memory, IVF for disk)
+- Tune index parameters (m, ef_construction for HNSW)
+- Consider quantization for large datasets
+
+### Full-Text Search Issues
+
+**Problem**: Full-text search not returning expected results
+**Solution**:
+- Verify full-text index is created
+- Check tokenizer configuration
+- Use appropriate query mode (NATURAL LANGUAGE, BOOLEAN, etc.)
+- Consider using hybrid search for better recall
+
+## Resources
+
+- Official Documentation: https://www.oceanbase.ai/docs/
+- GitHub Repository: https://github.com/oceanbase/seekdb
+- MySQL Compatibility: seekDB is fully compatible with MySQL syntax

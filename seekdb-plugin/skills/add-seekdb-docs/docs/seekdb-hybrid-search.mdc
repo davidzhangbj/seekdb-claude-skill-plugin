@@ -1,0 +1,478 @@
+---
+description: Use these rules when implementing hybrid search combining vector search and full-text search in seekDB using DBMS_HYBRID_SEARCH
+globs: *.sql, *.py, *.ts, *.tsx
+alwaysApply: false
+---
+
+# seekDB Hybrid Search Guidelines
+
+## Overview
+
+Hybrid search in seekDB combines vector-based semantic retrieval and full-text index-based keyword retrieval through the `DBMS_HYBRID_SEARCH` system package. It provides more accurate and comprehensive retrieval results by leveraging both semantic similarity and keyword matching. Vector search excels at semantic approximate matching but is weak at matching exact keywords, numbers, and proper nouns, while full-text retrieval effectively compensates for this deficiency.
+
+## Why Hybrid Search?
+
+- **Better Recall**: Combines semantic understanding (vectors) with keyword matching (full-text)
+- **Improved Accuracy**: Vector search handles semantic similarity, full-text search handles exact keywords
+- **Comprehensive Results**: Provides more accurate and comprehensive search results
+- **Flexible Weighting**: Adjust importance using `boost` parameters
+
+## Prerequisites
+
+Before using hybrid search, ensure you have:
+
+1. A table with vector and full-text indexes created:
+```sql
+CREATE TABLE documents(
+    id INT,
+    embedding VECTOR(1536),
+    content VARCHAR(255),
+    metadata JSON,
+    VECTOR INDEX idx_vector(embedding) WITH (distance=l2, type=hnsw, lib=vsag),
+    FULLTEXT INDEX idx_content(content)
+);
+```
+
+2. Data inserted with both vector embeddings and text content
+
+## Basic Hybrid Search
+
+### Step 1: Pure Vector Search
+
+Vector search finds semantically relevant content by calculating vector similarity, suitable for semantic search, recommendation systems, and other scenarios.
+
+```sql
+SET @parm = '{
+    "knn" : {
+        "field": "embedding", 
+        "k": 3, 
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+The results are sorted by vector similarity, where `_score` represents the similarity score. A higher score indicates greater similarity.
+
+### Step 2: Pure Full-Text Search
+
+Full-text search finds content through keyword matching, suitable for document search, product search, and other scenarios.
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords"
+        }
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+The results are sorted by keyword matching degree, where `_score` represents the matching score. A higher score indicates better matching.
+
+### Step 3: Hybrid Search
+
+Hybrid search combines keyword matching and semantic understanding to provide more accurate and comprehensive search results, leveraging the advantages of both full-text indexes and vector indexes.
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords"
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+The hybrid search results comprehensively consider the keyword matching score and semantic similarity score. The final `_score` is the sum of these two, used to comprehensively rank the search results.
+
+## Parameter Tuning
+
+In hybrid search, you can adjust the weight ratio of full-text search and vector search through the `boost` parameter to optimize search results.
+
+### Adjusting Boost Parameters
+
+```sql
+-- Increase the weight of full-text search
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords",
+            "boost": 2.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.0
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+By adjusting the `boost` parameter, you can control the weight of keyword search and semantic search in the final ranking:
+- If you focus more on keyword matching, increase the `boost` value of `query_string`
+- If you focus more on semantic similarity, increase the `boost` value of `knn`
+
+## Python Implementation
+
+### Basic Hybrid Search
+
+```python
+from seekdb import SeekDBClient
+import json
+import numpy as np
+
+client = SeekDBClient(connection_string=os.getenv('SEEKDB_URL'))
+
+query_text = "machine learning"
+query_embedding = np.random.rand(1536).astype(np.float32)
+query_embedding = query_embedding / np.linalg.norm(query_embedding)
+
+# Prepare search parameters
+search_params = {
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": query_text,
+            "boost": 2.0
+        }
+    },
+    "knn": {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": query_embedding.tolist(),
+        "boost": 1.0
+    }
+}
+
+# Execute hybrid search
+results = client.query("""
+    SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', ?)) as results
+""", [json.dumps(search_params)])
+
+# Parse results
+import json
+for row in results:
+    results_data = json.loads(row['results'])
+    for item in results_data:
+        print(f"ID: {item.get('id')}")
+        print(f"Score: {item.get('_score'):.4f}")
+        print(f"Content: {item.get('content')}")
+        print("---")
+```
+
+### Pure Vector Search
+
+```python
+def vector_search(client, query_embedding, k=5):
+    """Pure vector search"""
+    search_params = {
+        "knn": {
+            "field": "embedding",
+            "k": k,
+            "query_vector": query_embedding.tolist()
+        }
+    }
+    
+    results = client.query("""
+        SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', ?)) as results
+    """, [json.dumps(search_params)])
+    
+    return results
+```
+
+### Pure Full-Text Search
+
+```python
+def fulltext_search(client, query_text, fields=["content"]):
+    """Pure full-text search"""
+    search_params = {
+        "query": {
+            "query_string": {
+                "fields": fields,
+                "query": query_text
+            }
+        }
+    }
+    
+    results = client.query("""
+        SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', ?)) as results
+    """, [json.dumps(search_params)])
+    
+    return results
+```
+
+### Hybrid Search with Weight Tuning
+
+```python
+def hybrid_search(client, query_text, query_embedding, vector_boost=1.0, text_boost=2.0, k=5):
+    """Hybrid search with adjustable weights"""
+    search_params = {
+        "query": {
+            "query_string": {
+                "fields": ["content"],
+                "query": query_text,
+                "boost": text_boost
+            }
+        },
+        "knn": {
+            "field": "embedding",
+            "k": k,
+            "query_vector": query_embedding.tolist(),
+            "boost": vector_boost
+        }
+    }
+    
+    results = client.query("""
+        SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', ?)) as results
+    """, [json.dumps(search_params)])
+    
+    return results
+
+# Example: Semantic-heavy query (e.g., "what is machine learning?")
+results = hybrid_search(client, query_text, query_embedding, 
+                       vector_boost=2.0, text_boost=1.0)
+
+# Example: Keyword-heavy query (e.g., "Python tutorial")
+results = hybrid_search(client, query_text, query_embedding, 
+                       vector_boost=1.0, text_boost=2.0)
+
+# Example: Balanced query
+results = hybrid_search(client, query_text, query_embedding, 
+                       vector_boost=1.0, text_boost=1.0)
+```
+
+## RAG Workflow with Hybrid Search
+
+### Complete RAG Implementation
+
+```python
+def rag_retrieval(client, user_query, top_k=5, vector_boost=1.0, text_boost=2.0):
+    """Complete RAG retrieval using hybrid search"""
+    
+    # 1. Generate query embedding (in production, use actual embedding model)
+    query_embedding = generate_embedding(user_query)
+    
+    # 2. Hybrid search using DBMS_HYBRID_SEARCH
+    search_params = {
+        "query": {
+            "query_string": {
+                "fields": ["content"],
+                "query": user_query,
+                "boost": text_boost
+            }
+        },
+        "knn": {
+            "field": "embedding",
+            "k": top_k * 2,  # Retrieve more for reranking
+            "query_vector": query_embedding.tolist(),
+            "boost": vector_boost
+        }
+    }
+    
+    results = client.query("""
+        SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', ?)) as results
+    """, [json.dumps(search_params)])
+    
+    # 3. Parse and prepare context for LLM
+    import json
+    context_items = []
+    for row in results:
+        results_data = json.loads(row['results'])
+        for item in results_data[:top_k]:
+            context_items.append(item.get('content', ''))
+    
+    context = "\n\n".join(context_items)
+    
+    # 4. Generate response (using seekDB AI function or external LLM)
+    response = client.query_one("""
+        SELECT AI_COMPLETE(?, ?) as answer
+    """, [
+        f"Context: {context}\n\nQuestion: {user_query}\n\nAnswer:",
+        'gpt-4'
+    ])
+    
+    return {
+        'answer': response['answer'],
+        'sources': context_items
+    }
+```
+
+## Best Practices
+
+### 1. Weight Tuning
+
+Experiment with different boost values based on your use case:
+
+- **Semantic-heavy queries** (e.g., "what is machine learning?"): Higher `knn.boost` (e.g., 2.0), lower `query.boost` (e.g., 1.0)
+- **Keyword-heavy queries** (e.g., "Python tutorial"): Higher `query.boost` (e.g., 2.0), lower `knn.boost` (e.g., 1.0)
+- **Balanced queries**: Equal boost values (e.g., both 1.0)
+
+### 2. Index Optimization
+
+Ensure both vector and full-text indexes exist and are properly configured:
+
+```sql
+-- Vector index
+CREATE VECTOR INDEX idx_embedding ON documents(embedding) 
+WITH (distance=l2, type=hnsw, lib=vsag);
+
+-- Full-text index
+CREATE FULLTEXT INDEX idx_content ON documents(content);
+```
+
+### 3. Query Performance
+
+- Use appropriate `k` values in `knn` parameter (typically 5-20 for initial retrieval)
+- The `k` parameter controls how many vector search results to retrieve
+- Monitor query execution time and adjust `k` and `boost` parameters accordingly
+
+### 4. Result Interpretation
+
+- The `_score` field in results represents the combined score
+- Higher scores indicate better relevance
+- Scores are automatically normalized and combined by the system
+- Results are automatically sorted by `_score` in descending order
+
+### 5. Multi-Field Search
+
+You can search across multiple fields in full-text search:
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content", "title", "description"],
+            "query": "search keywords"
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+## Common Patterns
+
+### Pattern 1: Semantic + Keyword Search
+
+When user query has both semantic and keyword components, use hybrid search with balanced weights:
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "machine learning tutorial",
+            "boost": 1.5
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 10,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.5
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+### Pattern 2: Keyword-First Search
+
+For queries with specific keywords, prioritize full-text search:
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "Python API documentation",
+            "boost": 3.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.0
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+### Pattern 3: Semantic-First Search
+
+For conceptual queries, prioritize vector search:
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "how does neural network work",
+            "boost": 1.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 10,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 3.0
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+## Troubleshooting
+
+### Issue: No results returned
+
+**Solution**: 
+- Check if vector and full-text indexes are created
+- Verify the table name in `DBMS_HYBRID_SEARCH.SEARCH` matches your actual table
+- Ensure the field names in parameters match your table schema
+- Check if data exists in the table
+
+### Issue: Results not as expected
+
+**Solution**:
+- Adjust `boost` parameters to change weight ratio
+- Increase `k` value in `knn` to retrieve more candidates
+- Verify query text matches your data content
+- Check vector embedding quality
+
+### Issue: Slow query performance
+
+**Solution**:
+- Reduce `k` value in `knn` parameter
+- Ensure indexes are properly created and optimized
+- Check if vector index type is appropriate (HNSW for memory, IVF for disk)
+
+## Resources
+
+- Hybrid Search Guide: https://www.oceanbase.ai/docs/experience-hybrid-search
+- DBMS_HYBRID_SEARCH Documentation: See official documentation
+- Performance Tuning: Check seekDB best practices

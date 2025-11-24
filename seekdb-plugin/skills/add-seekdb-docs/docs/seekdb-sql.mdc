@@ -1,0 +1,926 @@
+---
+description: Use these rules when generating SQL queries for OceanBase seekDB, including vector search, full-text search, and hybrid queries
+globs: *.sql, *.ts, *.tsx, *.js, *.jsx, *.py
+alwaysApply: false
+---
+
+# seekDB SQL Syntax and Query Patterns
+
+## Overview
+
+seekDB is fully compatible with MySQL syntax and extends it with vector, full-text, JSON, and GIS capabilities. All standard MySQL SQL operations work seamlessly.
+
+## Standard SQL Operations
+
+### Database Operations
+
+```sql
+-- Create database with character set and read-write attribute
+CREATE DATABASE db1 DEFAULT CHARACTER SET utf8mb4 READ WRITE;
+
+-- View all databases
+SHOW DATABASES;
+
+-- Use database
+USE db1;
+```
+
+### DDL (Data Definition Language)
+
+#### Create Table
+
+```sql
+-- Create table with standard columns
+CREATE TABLE test (
+    c1 INT PRIMARY KEY,
+    c2 VARCHAR(3)
+);
+
+-- Create table with more columns
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL,
+    age INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_created (created_at)
+);
+```
+
+#### View Tables
+
+```sql
+-- View table creation statement
+SHOW CREATE TABLE test\G
+
+-- View all tables in current database
+SHOW TABLES;
+
+-- View all tables in specific database
+SHOW TABLES FROM db1;
+
+-- Describe table structure
+DESCRIBE test;
+-- or
+DESC test;
+```
+
+#### Modify Table
+
+```sql
+-- Rename column and change data type
+ALTER TABLE test CHANGE COLUMN c2 c3 CHAR(10);
+
+-- Add column
+ALTER TABLE test ADD c4 INT;
+
+-- Modify column
+ALTER TABLE users MODIFY COLUMN email VARCHAR(320);
+
+-- Drop column
+ALTER TABLE test DROP c3;
+ALTER TABLE users DROP COLUMN phone;
+```
+
+#### Delete Table
+
+```sql
+-- Drop table
+DROP TABLE test;
+DROP TABLE IF EXISTS users;
+```
+
+### Index Operations
+
+#### Create Index
+
+```sql
+-- Create index on single column
+CREATE INDEX idx_c2 ON test(c2);
+
+-- Create index on multiple columns
+CREATE INDEX idx_name_num ON t6(name, num);
+
+-- Create unique index
+CREATE UNIQUE INDEX idx_username ON users(username);
+```
+
+#### View Indexes
+
+```sql
+-- View all indexes on a table
+SHOW INDEX FROM test;
+SHOW INDEXES FROM test;
+SHOW KEYS FROM test;
+```
+
+#### Delete Index
+
+```sql
+-- Drop index
+DROP INDEX idx_c2 ON test;
+```
+
+### DML (Data Manipulation Language)
+
+#### Insert Data
+
+```sql
+-- Insert single row
+INSERT INTO users (username, email, age) 
+VALUES ('alice', 'alice@example.com', 30);
+
+-- Insert multiple rows
+INSERT INTO users (username, email, age) VALUES
+    ('bob', 'bob@example.com', 25),
+    ('charlie', 'charlie@example.com', 35);
+
+-- Insert with default values
+INSERT INTO t_insert(id, name, value, gmt_create) 
+VALUES(1,'CN',10001, current_timestamp),
+      (2,'US',10002, current_timestamp),
+      (3,'EN',10003, current_timestamp);
+
+-- Insert with partial columns (NULL for omitted columns)
+INSERT INTO t_insert(id, name) VALUES(4,'JP');
+```
+
+#### Update Data
+
+```sql
+-- Update single row
+UPDATE users SET age = 31 WHERE username = 'alice';
+
+-- Update multiple rows
+UPDATE t6 SET num = num + 10 WHERE name = 'a';
+
+-- Update with multiple columns
+UPDATE users SET age = 32, email = 'newemail@example.com' WHERE id = 1;
+```
+
+#### Delete Data
+
+```sql
+-- Delete with condition
+DELETE FROM users WHERE age < 18;
+
+-- Delete all rows (be careful!)
+DELETE FROM test;
+```
+
+#### Query Data
+
+```sql
+-- Select all columns
+SELECT * FROM users;
+
+-- Select specific columns
+SELECT id, username, email FROM users WHERE age > 25;
+
+-- Select with alias
+SELECT id AS ID, name AS NAME, num AS NUM FROM t6;
+
+-- Select with aggregate functions
+SELECT COUNT(*) as total FROM users;
+SELECT username, AVG(age) as avg_age FROM users GROUP BY username;
+
+-- Select with WHERE clause
+SELECT id, name, num FROM t6 WHERE name = 'a';
+
+-- Select with ORDER BY
+SELECT * FROM users ORDER BY age DESC;
+
+-- Select with LIMIT
+SELECT * FROM users LIMIT 10;
+```
+
+### Joins and Subqueries
+
+```sql
+-- Inner join
+SELECT u.username, p.title 
+FROM users u
+INNER JOIN posts p ON u.id = p.user_id;
+
+-- Left join
+SELECT u.username, COUNT(p.id) as post_count
+FROM users u
+LEFT JOIN posts p ON u.id = p.user_id
+GROUP BY u.id, u.username;
+
+-- Subquery
+SELECT * FROM users 
+WHERE id IN (SELECT user_id FROM posts WHERE created_at > '2024-01-01');
+```
+
+## Vector Operations
+
+### Creating Vector Columns
+
+```sql
+-- Create table with vector column
+CREATE TABLE embeddings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    text_content TEXT,
+    embedding VECTOR(1536),  -- 1536-dimensional vector (e.g., OpenAI embeddings)
+    metadata JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Vector dimensions can vary (e.g., 384, 768, 1536)
+CREATE TABLE small_embeddings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    embedding VECTOR(384)  -- Smaller dimension
+);
+```
+
+### Vector Indexes
+
+```sql
+-- HNSW index (in-memory, fast for small to medium datasets)
+CREATE INDEX idx_embedding_hnsw ON embeddings 
+USING VECTOR(embedding) 
+WITH (
+    type='HNSW',
+    m=16,              -- Number of connections per node
+    ef_construction=200  -- Size of candidate list during construction
+);
+
+-- HNSW with quantization (memory efficient)
+CREATE INDEX idx_embedding_hnsw_sq ON embeddings 
+USING VECTOR(embedding) 
+WITH (
+    type='HNSW-SQ',    -- Scalar Quantization
+    m=16,
+    ef_construction=200
+);
+
+-- IVF index (disk-based, good for large datasets)
+CREATE INDEX idx_embedding_ivf ON embeddings 
+USING VECTOR(embedding) 
+WITH (
+    type='IVF',
+    nlist=1000  -- Number of clusters
+);
+
+-- IVF with Product Quantization
+CREATE INDEX idx_embedding_ivf_pq ON embeddings 
+USING VECTOR(embedding) 
+WITH (
+    type='IVF-PQ',
+    nlist=1000,
+    m=8,  -- Number of sub-vectors
+    nbits=8  -- Bits per sub-vector
+);
+```
+
+### Vector Distance Functions
+
+```sql
+-- Cosine similarity (default, range: -1 to 1, higher is more similar)
+SELECT 
+    id,
+    text_content,
+    VECTOR_DISTANCE(embedding, ?) as cosine_similarity
+FROM embeddings
+WHERE VECTOR_DISTANCE(embedding, ?) > 0.7
+ORDER BY cosine_similarity DESC
+LIMIT 10;
+
+-- Euclidean distance (range: 0 to infinity, lower is more similar)
+SELECT 
+    id,
+    VECTOR_DISTANCE(embedding, ?, 'euclidean') as euclidean_distance
+FROM embeddings
+WHERE VECTOR_DISTANCE(embedding, ?, 'euclidean') < 10.0
+ORDER BY euclidean_distance ASC
+LIMIT 10;
+
+-- Inner product (range: -infinity to infinity, higher is more similar)
+SELECT 
+    id,
+    VECTOR_DISTANCE(embedding, ?, 'inner_product') as inner_product
+FROM embeddings
+ORDER BY inner_product DESC
+LIMIT 10;
+
+-- Manhattan distance
+SELECT 
+    id,
+    VECTOR_DISTANCE(embedding, ?, 'manhattan') as manhattan_distance
+FROM embeddings
+WHERE VECTOR_DISTANCE(embedding, ?, 'manhattan') < 100.0
+ORDER BY manhattan_distance ASC;
+```
+
+### Vector Search Examples
+
+```sql
+-- Find top 10 most similar vectors
+SELECT 
+    id,
+    text_content,
+    VECTOR_DISTANCE(embedding, ?) as similarity
+FROM embeddings
+ORDER BY similarity DESC
+LIMIT 10;
+
+-- Vector search with threshold
+SELECT * FROM embeddings
+WHERE VECTOR_DISTANCE(embedding, ?) > 0.8;
+
+-- Vector search with relational filter
+SELECT * FROM embeddings
+WHERE 
+    category = 'technology' AND
+    VECTOR_DISTANCE(embedding, ?) > 0.7
+ORDER BY VECTOR_DISTANCE(embedding, ?) DESC;
+```
+
+## Full-Text Search
+
+### Background
+
+seekDB's full-text indexing feature uses the advanced BM25 algorithm to calculate relevance scores between query keywords and stored documents. Combined with seekDB's high-performance query engine, it optimizes the TAAT/DAAT process and supports union merge between multiple indexes, enabling efficient retrieval from massive data.
+
+### Creating Full-Text Indexes
+
+#### Basic Full-Text Index
+
+```sql
+-- Full-text index on single column
+CREATE FULLTEXT INDEX idx_content ON documents(content);
+
+-- Full-text index on multiple columns
+CREATE FULLTEXT INDEX idx_fulltext ON documents(title, content, description);
+```
+
+#### Full-Text Index with Tokenizers
+
+seekDB provides built-in tokenizers for different languages:
+
+- **Beng**: Suitable for English text, provides efficient word segmentation
+- **IK**: Suitable for Chinese text
+- **space**: For space-separated languages
+- **ngram**: Splits by character length
+
+```sql
+-- Create table with Beng tokenizer (for English)
+CREATE TABLE wikir1k (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    document TEXT,
+    FULLTEXT INDEX ft_idx1_document(document)
+        WITH PARSER beng
+);
+
+-- Full-text index with IK tokenizer (for Chinese)
+CREATE FULLTEXT INDEX idx_content_ik ON documents(content)
+WITH PARSER ik;
+
+-- Full-text index with ngram tokenizer
+CREATE FULLTEXT INDEX idx_content_ngram ON documents(content)
+WITH PARSER ngram;
+
+-- Full-text index with space tokenizer
+CREATE FULLTEXT INDEX idx_content_space ON documents(content)
+WITH PARSER space;
+```
+
+### Full-Text Query Modes
+
+#### Natural Language Mode (Default)
+
+```sql
+-- Natural language mode (default)
+SELECT * FROM documents
+WHERE MATCH(content) AGAINST('machine learning' IN NATURAL LANGUAGE MODE);
+
+-- Natural language mode (default, can omit IN NATURAL LANGUAGE MODE)
+SELECT * FROM documents
+WHERE MATCH(content) AGAINST('machine learning');
+```
+
+#### Boolean Mode
+
+Boolean mode supports operators: `+` (must contain), `-` (must not contain), `*` (wildcard), `>`, `<` (weight operators).
+
+```sql
+-- Boolean mode: documents containing both "london" and "mayfair"
+SELECT COUNT(*) FROM wikir1k
+WHERE MATCH (document) AGAINST ('+london +mayfair' IN BOOLEAN MODE);
+
+-- Boolean mode: documents about "london" but excluding "westminster"
+SELECT COUNT(*) FROM wikir1k
+WHERE MATCH (document) AGAINST ('+london -westminster' IN BOOLEAN MODE);
+
+-- Boolean mode with multiple conditions
+SELECT * FROM documents
+WHERE MATCH(content) AGAINST('+machine +learning -neural' IN BOOLEAN MODE);
+```
+
+#### Query Expansion Mode
+
+```sql
+-- Query expansion mode (includes synonyms)
+SELECT * FROM documents
+WHERE MATCH(content) AGAINST('database' WITH QUERY EXPANSION);
+```
+
+#### Phrase Search
+
+```sql
+-- Phrase search (exact phrase matching)
+SELECT * FROM documents
+WHERE MATCH(content) AGAINST('"artificial intelligence"' IN NATURAL LANGUAGE MODE);
+```
+
+### Full-Text Search with Ranking
+
+```sql
+-- Get relevance scores (BM25 algorithm)
+SELECT 
+    id,
+    MATCH (document) AGAINST ('london mayfair') AS score
+FROM wikir1k
+WHERE MATCH (document) AGAINST ('+london +mayfair' IN BOOLEAN MODE) 
+ORDER BY score DESC
+LIMIT 10;
+
+-- Full-text search with filters
+SELECT * FROM documents
+WHERE 
+    MATCH(content) AGAINST('query') AND
+    category = 'tech' AND
+    created_at > '2024-01-01';
+```
+
+### Tuning with TOKENIZE Function
+
+Use the `TOKENIZE` function to debug and verify tokenization:
+
+```sql
+-- Check how text is tokenized
+SELECT TOKENIZE('A computer system is a set of integrated devices that input, output, process, and store data and information. Computer systems are currently built around at least one digital processing device. There are five main hardware components in a computer system: Input, Processing, Storage, Output and Communication devices.', 'beng') AS tokens;
+
+-- Verify query tokenization
+SELECT TOKENIZE('computer system', 'beng') AS query_tokens;
+```
+
+### Performance Comparison
+
+Compared to `LIKE` queries, full-text indexing provides:
+- **Simpler syntax**: More intuitive query expressions
+- **Faster query speed**: Significantly faster than `LIKE` queries
+- **Better relevance ranking**: BM25 algorithm provides accurate relevance scores
+
+```sql
+-- Full-text search (fast)
+SELECT COUNT(*) FROM wikir1k
+WHERE MATCH (document) AGAINST ('+london +mayfair' IN BOOLEAN MODE);
+-- Result: ~0.01 sec
+
+-- LIKE query (slow)
+SELECT COUNT(*) FROM wikir1k
+WHERE document LIKE '%london%' AND document LIKE '%mayfair%';
+-- Result: ~3.48 sec
+```
+
+### Data Import for Full-Text Search
+
+```sql
+-- Import data from CSV file
+LOAD DATA /*+ PARALLEL(8) */ LOCAL INFILE '/path/to/documents.csv' 
+INTO TABLE wikir1k
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"' 
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+-- Verify imported data
+SELECT AVG(LENGTH(document)), COUNT(*) FROM wikir1k;
+```
+
+## Hybrid Search
+
+### Overview
+
+Hybrid search in seekDB combines vector-based semantic retrieval and full-text index-based keyword retrieval through the `DBMS_HYBRID_SEARCH` system package. It provides more accurate and comprehensive retrieval results by leveraging both semantic similarity and keyword matching.
+
+**Why Hybrid Search?**
+- **Better Recall**: Combines semantic understanding (vectors) with keyword matching (full-text)
+- **Improved Accuracy**: Vector search handles semantic similarity, full-text search handles exact keywords
+- **Comprehensive Results**: Provides more accurate and comprehensive search results
+- **Flexible Weighting**: Adjust importance using `boost` parameters
+
+### Prerequisites
+
+Before using hybrid search, ensure you have a table with both vector and full-text indexes:
+
+```sql
+-- Create table with both vector and full-text indexes
+CREATE TABLE documents(
+    id INT,
+    embedding VECTOR(1536),
+    content TEXT,
+    metadata JSON,
+    VECTOR INDEX idx_vector(embedding) WITH (distance=l2, type=hnsw, lib=vsag),
+    FULLTEXT INDEX idx_content(content) WITH PARSER beng
+);
+```
+
+### Pure Vector Search
+
+```sql
+-- Pure vector search using DBMS_HYBRID_SEARCH
+SET @parm = '{
+    "knn" : {
+        "field": "embedding", 
+        "k": 3, 
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+Results are sorted by vector similarity, where `_score` represents the similarity score. A higher score indicates greater similarity.
+
+### Pure Full-Text Search
+
+```sql
+-- Pure full-text search using DBMS_HYBRID_SEARCH
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords"
+        }
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+Results are sorted by keyword matching degree, where `_score` represents the matching score. A higher score indicates better matching.
+
+### Hybrid Search
+
+Hybrid search combines keyword matching and semantic understanding:
+
+```sql
+-- Basic hybrid search
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords"
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+The hybrid search results comprehensively consider the keyword matching score and semantic similarity score. The final `_score` is the sum of these two, used to comprehensively rank the search results.
+
+### Adjusting Boost Parameters
+
+Adjust the weight ratio of full-text search and vector search through the `boost` parameter:
+
+```sql
+-- Increase the weight of full-text search
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "search keywords",
+            "boost": 2.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.0
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+**Boost Tuning Guidelines:**
+- **Semantic-heavy queries** (e.g., "what is machine learning?"): Higher `knn.boost` (e.g., 2.0), lower `query.boost` (e.g., 1.0)
+- **Keyword-heavy queries** (e.g., "Python tutorial"): Higher `query.boost` (e.g., 2.0), lower `knn.boost` (e.g., 1.0)
+- **Balanced queries**: Equal boost values (e.g., both 1.0)
+
+### Multi-Field Full-Text Search
+
+Search across multiple fields in full-text search:
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content", "title", "description"],
+            "query": "search keywords"
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...]
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+### Common Hybrid Search Patterns
+
+#### Pattern 1: Semantic + Keyword Search (Balanced)
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "machine learning tutorial",
+            "boost": 1.5
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 10,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.5
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+#### Pattern 2: Keyword-First Search
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "Python API documentation",
+            "boost": 3.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 5,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 1.0
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+#### Pattern 3: Semantic-First Search
+
+```sql
+SET @parm = '{
+    "query": {
+        "query_string": {
+            "fields": ["content"],
+            "query": "how does neural network work",
+            "boost": 1.0
+        }
+    },
+    "knn" : {
+        "field": "embedding",
+        "k": 10,
+        "query_vector": [0.1, 0.2, 0.3, ...],
+        "boost": 3.0
+    }
+}';
+
+SELECT JSON_PRETTY(DBMS_HYBRID_SEARCH.SEARCH('documents', @parm));
+```
+
+### Best Practices
+
+1. **Index Optimization**: Ensure both vector and full-text indexes exist and are properly configured
+2. **Query Performance**: Use appropriate `k` values in `knn` parameter (typically 5-20 for initial retrieval)
+3. **Result Interpretation**: The `_score` field represents the combined score; higher scores indicate better relevance
+4. **Weight Tuning**: Experiment with different boost values based on your use case
+
+## JSON Operations
+
+### Creating JSON Columns
+
+```sql
+-- Table with JSON column
+CREATE TABLE products (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    metadata JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index JSON field
+CREATE INDEX idx_category ON products ((CAST(metadata->'$.category' AS CHAR(50))));
+CREATE INDEX idx_price ON products ((CAST(metadata->'$.price' AS DECIMAL(10,2))));
+```
+
+### JSON Queries
+
+```sql
+-- Extract JSON value
+SELECT id, name, metadata->'$.category' as category FROM products;
+
+-- Extract with type casting
+SELECT id, name, CAST(metadata->'$.price' AS DECIMAL(10,2)) as price FROM products;
+
+-- Filter by JSON field
+SELECT * FROM products WHERE metadata->'$.category' = 'electronics';
+
+-- JSON path queries
+SELECT * FROM products WHERE JSON_EXTRACT(metadata, '$.tags[0]') = 'new';
+
+-- Check JSON key existence
+SELECT * FROM products WHERE JSON_CONTAINS_PATH(metadata, 'one', '$.discount');
+
+-- Update JSON
+UPDATE products SET metadata = JSON_SET(metadata, '$.price', 99.99) WHERE id = 1;
+```
+
+## AI Functions in SQL
+
+### Embedding Generation
+
+```sql
+-- Generate embedding from text
+SELECT AI_EMBED('This is a sample text', 'text-embedding-ada-002') as embedding;
+
+-- Use in INSERT
+INSERT INTO documents (content, embedding)
+VALUES ('Sample text', AI_EMBED('Sample text', 'text-embedding-ada-002'));
+
+-- Batch embedding generation
+SELECT 
+    id,
+    content,
+    AI_EMBED(content, 'text-embedding-ada-002') as embedding
+FROM raw_documents;
+```
+
+### Text Completion
+
+```sql
+-- Generate text with AI
+SELECT AI_COMPLETE('What is machine learning?', 'gpt-4') as answer;
+
+-- Use prompt template
+SELECT AI_COMPLETE(
+    CONCAT('Context: ', context, '\nQuestion: ', question),
+    'gpt-4'
+) as answer
+FROM qa_pairs;
+```
+
+### Reranking
+
+```sql
+-- Rerank search results using LLM
+SELECT 
+    id,
+    content,
+    AI_RERANK(query, content, 'rerank-model') as rerank_score
+FROM documents
+WHERE MATCH(content) AGAINST(?)
+ORDER BY rerank_score DESC
+LIMIT 10;
+```
+
+## Transactions
+
+### Commit Transaction
+
+Before committing a transaction:
+- Modifications are visible only to the current session
+- Modifications are not persisted and can be rolled back
+
+After committing a transaction:
+- Modifications are visible to all database sessions
+- Modifications are successfully persisted and cannot be rolled back
+
+```sql
+-- Create table for transaction example
+CREATE TABLE t_insert(
+    id number NOT NULL PRIMARY KEY,
+    name varchar(10) NOT NULL, 
+    value number,
+    gmt_create DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Start transaction
+BEGIN;
+
+-- Multiple operations
+INSERT INTO t_insert(id, name, value, gmt_create) 
+VALUES(1,'CN',10001, current_timestamp),
+      (2,'US',10002, current_timestamp),
+      (3,'EN',10003, current_timestamp);
+
+INSERT INTO t_insert(id, name) VALUES(4,'JP');
+
+-- Commit transaction (makes changes permanent)
+COMMIT;
+```
+
+### Rollback Transaction
+
+Rolling back a transaction means undoing all modifications made in the transaction.
+
+```sql
+-- Start transaction
+BEGIN;
+
+-- Insert data
+INSERT INTO t_insert(id, name, value) 
+VALUES(5,'JP',10004),
+      (6,'FR',10005),
+      (7,'RU',10006);
+
+-- Rollback transaction (undoes all changes)
+ROLLBACK;
+
+-- Alternative: Start transaction explicitly
+START TRANSACTION;
+-- ... operations ...
+COMMIT;
+-- OR
+ROLLBACK;
+```
+
+### Transaction with Savepoints
+
+```sql
+BEGIN;
+
+INSERT INTO t_insert(id, name) VALUES(10,'A');
+
+SAVEPOINT sp1;
+
+INSERT INTO t_insert(id, name) VALUES(11,'B');
+
+-- Rollback to savepoint (keeps changes before savepoint)
+ROLLBACK TO SAVEPOINT sp1;
+
+-- Continue transaction or commit
+COMMIT;
+```
+
+## User Management
+
+### Create User
+
+```sql
+-- Create user with password
+CREATE USER 'test' IDENTIFIED BY 'password123';
+```
+
+### Grant Privileges
+
+```sql
+-- Grant SELECT privilege on all tables in database
+GRANT SELECT ON db1.* TO test;
+
+-- Grant multiple privileges
+GRANT SELECT, INSERT, UPDATE ON db1.* TO test;
+
+-- Grant all privileges
+GRANT ALL PRIVILEGES ON db1.* TO test;
+
+-- View user privileges
+SHOW GRANTS FOR test;
+```
+
+### Delete User
+
+```sql
+-- Drop user
+DROP USER test;
+```
+
+## Best Practices
+
+1. **Always use parameterized queries** to prevent SQL injection
+2. **Create appropriate indexes** for vector, full-text, and JSON columns
+3. **Use hybrid search** for better recall in RAG scenarios
+4. **Leverage AI functions** for embedding generation and reranking
+5. **Push down filters** to storage layer for better performance
+6. **Use transactions** for data consistency

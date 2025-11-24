@@ -1,0 +1,536 @@
+---
+description: Use these rules when implementing vector search, similarity search, and embedding operations with seekDB
+globs: *.sql, *.py, *.ts, *.tsx
+alwaysApply: false
+---
+
+# seekDB Vector Search Guidelines
+
+## Overview
+
+seekDB provides native support for high-dimensional vector storage and similarity search, making it ideal for semantic search, recommendation systems, and RAG (Retrieval-Augmented Generation) applications.
+
+seekDB supports up to 16,000 dimensions of float-type dense vectors, sparse vectors, and various types of vector distance calculations such as Manhattan distance, Euclidean distance, inner product, and cosine distance. It supports creating vector indexes based on HNSW/IVF, and supports incremental updates and deletions without affecting recall.
+
+seekDB vector search has hybrid search capabilities with scalar filtering. It also provides flexible access interfaces, supporting SQL access through MySQL protocol clients in various languages, as well as Python SDK access.
+
+## Quick Start
+
+### 1. Create Vector Columns and Indexes
+
+When creating a table, you can use the `VECTOR(dim)` data type to declare a column as a vector column and specify its dimension. Vector indexes must be created on vector columns, and at least two parameters, `type` and `distance`, must be provided.
+
+```sql
+-- Create a vector column with dimension 3 and HNSW index
+CREATE TABLE t1 (
+    id INT PRIMARY KEY,
+    doc VARCHAR(200),
+    embedding VECTOR(3),
+    VECTOR INDEX idx1(embedding) WITH (distance=L2, type=hnsw)
+);
+```
+
+### 2. Insert Vector Data
+
+```sql
+-- Insert vector data
+INSERT INTO t1
+VALUES (1, 'apple', '[1.2,0.7,1.1]'),
+       (2, 'banana', '[0.6,1.2,0.8]'),
+       (3, 'orange','[1.1,1.1,0.9]'),
+       (4, 'carrot', '[5.3,4.8,5.4]'),
+       (5, 'spinach', '[4.9,5.3,4.8]'),
+       (6, 'tomato','[5.2,4.9,5.1]');
+```
+
+### 3. Perform Vector Search
+
+To perform vector search, you need to provide a vector as the search condition. Use the `APPROXIMATE` keyword for approximate search with vector indexes.
+
+```sql
+-- Approximate vector search
+SELECT id, doc FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 3;
+```
+
+**Note:** For convenience of demonstration, the example uses 3-dimensional vectors. In actual applications, you need to use embedding models to generate vectors from real text, and the dimensions can reach hundreds or thousands.
+
+## Vector Data Types
+
+### Supported Vector Dimensions
+
+seekDB supports vectors of various dimensions up to 16,000 dimensions. Common dimensions include:
+
+- **384**: Sentence transformers (all-MiniLM-L6-v2)
+- **768**: BERT-base models
+- **1536**: OpenAI text-embedding-ada-002
+- **3072**: OpenAI text-embedding-3-large
+- Custom dimensions as needed (up to 16,000)
+
+### Creating Vector Columns
+
+```sql
+-- Create table with vector column and vector index
+CREATE TABLE t1 (
+    id INT PRIMARY KEY,
+    doc VARCHAR(200),
+    embedding VECTOR(3),  -- Specify dimension
+    VECTOR INDEX idx1(embedding) WITH (distance=L2, type=hnsw)
+);
+
+-- Multiple vector columns in one table
+CREATE TABLE multi_modal (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    text_embedding VECTOR(1536),
+    image_embedding VECTOR(512),
+    audio_embedding VECTOR(128)
+);
+```
+
+## Vector Indexes
+
+Vector indexes must be created on vector columns, and at least two parameters, `type` and `distance`, must be provided.
+
+### HNSW Index
+
+HNSW (Hierarchical Navigable Small World) is ideal for fast similarity search using approximate nearest neighbor (ANN) strategy.
+
+```sql
+-- Create table with HNSW vector index
+CREATE TABLE t1 (
+    id INT PRIMARY KEY,
+    doc VARCHAR(200),
+    embedding VECTOR(3),
+    VECTOR INDEX idx1(embedding) WITH (distance=L2, type=hnsw)
+);
+
+-- HNSW index with lib parameter
+CREATE TABLE t2 (
+    id INT PRIMARY KEY,
+    vec VECTOR(3),
+    VECTOR INDEX idx(vec) WITH (distance=l2, type=hnsw, lib=vsag)
+);
+```
+
+**When to use HNSW:**
+- Small to medium datasets (< 10M vectors)
+- High query performance requirements
+- Sufficient memory available
+- Real-time search applications
+- Approximate search with good balance between accuracy and performance
+
+### IVF Index
+
+IVF (Inverted File Index) is suitable for large datasets that don't fit in memory.
+
+```sql
+-- Create table with IVF vector index
+CREATE TABLE t3 (
+    id INT PRIMARY KEY,
+    embedding VECTOR(1536),
+    VECTOR INDEX idx_ivf(embedding) WITH (distance=L2, type=ivf)
+);
+```
+
+**When to use IVF:**
+- Large datasets (> 10M vectors)
+- Limited memory
+- Batch processing scenarios
+- Can tolerate slightly lower recall
+
+## Distance Metrics
+
+seekDB supports various types of vector distance calculations: Manhattan distance, Euclidean distance (L2), inner product, and cosine distance.
+
+### Euclidean Distance (L2)
+
+Measures straight-line distance. Range: 0 to infinity, lower is more similar.
+
+```sql
+-- Euclidean distance search (exact search)
+SELECT id, doc FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+LIMIT 3;
+
+-- Euclidean distance search (approximate search with index)
+SELECT id, vec
+FROM t2
+ORDER BY l2_distance(vec, '[0.1, 0.2, 0.3]')
+APPROXIMATE
+LIMIT 5;
+```
+
+### Cosine Distance
+
+Measures the cosine of the angle between vectors. Range: -1 to 1, higher is more similar.
+
+```sql
+-- Cosine distance search
+SELECT 
+    id,
+    doc,
+    cosine_distance(embedding, '[0.9, 1.0, 0.9]') as cosine_similarity
+FROM t1
+ORDER BY cosine_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+```
+
+### Inner Product
+
+Measures dot product. Range: -infinity to infinity, higher is more similar.
+
+```sql
+-- Inner product search
+SELECT 
+    id,
+    inner_product(embedding, '[0.9, 1.0, 0.9]') as inner_product
+FROM t1
+ORDER BY inner_product(embedding, '[0.9, 1.0, 0.9]') DESC
+APPROXIMATE
+LIMIT 10;
+```
+
+### Manhattan Distance (L1)
+
+Measures L1 distance. Range: 0 to infinity, lower is more similar.
+
+```sql
+-- Manhattan distance search
+SELECT 
+    id,
+    manhattan_distance(embedding, '[0.9, 1.0, 0.9]') as manhattan_distance
+FROM t1
+ORDER BY manhattan_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+```
+
+## Exact Search vs Approximate Search
+
+### Exact Search
+
+Exact search uses a full scan strategy, performing exact search by calculating the distance between the query vector and all vectors in the dataset. This method can guarantee complete accuracy of search results, but since full distance calculation is required, search performance will significantly decrease as the data scale grows.
+
+```sql
+-- Exact search (full table scan)
+SELECT c1
+FROM t1
+ORDER BY l2_distance(c1, '[0.1, 0.2, 0.3]') LIMIT 5;
+```
+
+**Characteristics:**
+- Execution method: Full table scan (TABLE FULL SCAN) followed by sorting
+- Performance: Requires scanning all table data and sorting, performance significantly decreases as data volume grows
+- Result accuracy: 100% accurate, guarantees returning true nearest neighbors
+- Applicable scenarios: Small data volumes, scenarios with high accuracy requirements
+
+### Approximate Search
+
+Vector index search uses an approximate nearest neighbor (ANN) strategy, accelerating the search process through pre-built index structures. Although it cannot guarantee 100% accuracy of results, it can significantly improve search performance, achieving a good balance between accuracy and performance in practical applications.
+
+```sql
+-- Approximate search using vector index
+SELECT id, vec
+FROM t2
+ORDER BY l2_distance(vec, '[0.1, 0.2, 0.3]')
+APPROXIMATE
+LIMIT 5;
+```
+
+**Characteristics:**
+- Execution method: Direct search through vector index (VECTOR INDEX SCAN)
+- Performance: Directly locates target data through index, stable performance
+- Result accuracy: Approximately accurate, may have minor errors
+- Applicable scenarios: Large-scale datasets, scenarios with high performance requirements
+
+**Note:** Use the `APPROXIMATE` keyword when performing approximate search with vector indexes.
+
+## Vector Search Patterns
+
+### Basic Similarity Search
+
+```sql
+-- Find top K most similar vectors (approximate search)
+SELECT 
+    id,
+    doc
+FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+
+-- Exact search (no APPROXIMATE keyword)
+SELECT 
+    id,
+    doc
+FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+LIMIT 10;
+```
+
+### Inserting Vector Data
+
+```sql
+-- Insert vector data
+INSERT INTO t1
+VALUES (1, 'apple', '[1.2,0.7,1.1]'),
+       (2, 'banana', '[0.6,1.2,0.8]'),
+       (3, 'orange','[1.1,1.1,0.9]'),
+       (4, 'carrot', '[5.3,4.8,5.4]'),
+       (5, 'spinach', '[4.9,5.3,4.8]'),
+       (6, 'tomato','[5.2,4.9,5.1]');
+```
+
+### Filtered Vector Search
+
+```sql
+-- Vector search with scalar filters (hybrid search)
+SELECT * FROM t1
+WHERE 
+    category = 'technology' AND
+    created_at > '2024-01-01'
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+```
+
+### Multi-Table Vector Search
+
+```sql
+-- Join with other tables
+SELECT 
+    e.id,
+    e.doc,
+    u.username,
+    l2_distance(e.embedding, '[0.9, 1.0, 0.9]') as distance
+FROM t1 e
+JOIN users u ON e.user_id = u.id
+WHERE 
+    u.status = 'active'
+ORDER BY distance
+APPROXIMATE
+LIMIT 10;
+```
+
+## Python Vector Operations
+
+seekDB provides Python SDK (pyseekdb) for vector operations. You can also use MySQL protocol clients in various languages.
+
+### Inserting Vectors
+
+```python
+import numpy as np
+import mysql.connector
+
+# Connect to seekDB
+conn = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password='',
+    database='test'
+)
+cursor = conn.cursor()
+
+# Generate embedding (in production, use actual embedding model)
+embedding = np.random.rand(1536).astype(np.float32)
+
+# Insert as list format string
+embedding_str = '[' + ','.join(map(str, embedding)) + ']'
+cursor.execute(
+    "INSERT INTO t1 (id, doc, embedding) VALUES (%s, %s, %s)",
+    (1, "Sample text", embedding_str)
+)
+conn.commit()
+```
+
+### Batch Vector Insert
+
+```python
+# Prepare batch data
+texts = ["Text 1", "Text 2", "Text 3"]
+embeddings = [np.random.rand(1536).astype(np.float32) for _ in texts]
+
+# Batch insert
+data = [
+    (i+1, text, '[' + ','.join(map(str, emb)) + ']')
+    for i, (text, emb) in enumerate(zip(texts, embeddings))
+]
+cursor.executemany(
+    "INSERT INTO t1 (id, doc, embedding) VALUES (%s, %s, %s)",
+    data
+)
+conn.commit()
+```
+
+### Vector Search in Python
+
+```python
+# Prepare query vector
+query_embedding = np.random.rand(1536).astype(np.float32)
+query_str = '[' + ','.join(map(str, query_embedding)) + ']'
+
+# Approximate search
+cursor.execute("""
+    SELECT 
+        id,
+        doc,
+        l2_distance(embedding, %s) as distance
+    FROM t1
+    ORDER BY l2_distance(embedding, %s)
+    APPROXIMATE
+    LIMIT 10
+""", (query_str, query_str))
+
+results = cursor.fetchall()
+for row in results:
+    print(f"ID: {row[0]}, Doc: {row[1]}, Distance: {row[2]}")
+```
+
+## Best Practices
+
+### 1. Choose Appropriate Index Type
+
+- **HNSW**: < 10M vectors, high performance needed, approximate search
+- **IVF**: > 10M vectors, memory constrained, approximate search
+- **No Index**: Small datasets, exact search required
+
+### 2. Use APPROXIMATE Keyword for Index-Based Search
+
+```sql
+-- ✅ Good: Use APPROXIMATE for index-based approximate search
+SELECT * FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+
+-- ✅ Good: Omit APPROXIMATE for exact search
+SELECT * FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+LIMIT 10;
+```
+
+### 3. Use Appropriate Distance Metric
+
+- **L2 (Euclidean)**: Unnormalized vectors, geometric similarity
+- **Cosine**: Text embeddings, normalized vectors
+- **Inner Product**: When vectors are already normalized
+- **Manhattan (L1)**: Sparse vectors, L1 regularization
+
+### 4. Vector Index Creation
+
+```sql
+-- ✅ Good: Create vector index when creating table
+CREATE TABLE t1 (
+    id INT PRIMARY KEY,
+    embedding VECTOR(1536),
+    VECTOR INDEX idx1(embedding) WITH (distance=L2, type=hnsw)
+);
+
+-- ✅ Good: Vector indexes support incremental updates and deletions
+-- without affecting recall
+```
+
+### 5. Hybrid Search with Scalar Filtering
+
+```sql
+-- ✅ Good: Combine vector search with scalar filters
+SELECT * FROM t1
+WHERE category = 'technology'
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+```
+
+### 6. Vector Format in SQL
+
+```sql
+-- ✅ Good: Use bracket notation for vectors
+INSERT INTO t1 VALUES (1, 'apple', '[1.2,0.7,1.1]');
+
+-- ✅ Good: Vectors can be up to 16,000 dimensions
+CREATE TABLE t1 (
+    id INT PRIMARY KEY,
+    embedding VECTOR(16000)
+);
+```
+
+## Performance Optimization
+
+### Choose Between Exact and Approximate Search
+
+- **Exact Search**: Use for small datasets or when 100% accuracy is required
+  - No index needed
+  - Full table scan
+  - Guaranteed accuracy
+
+- **Approximate Search**: Use for large datasets or when performance is critical
+  - Requires vector index (HNSW or IVF)
+  - Use `APPROXIMATE` keyword
+  - Faster performance with good accuracy
+
+### Index Selection
+
+- **HNSW Index**: Best for high-performance approximate search
+  - Fast query performance
+  - Good for real-time applications
+  - Suitable for datasets that fit in memory
+
+- **IVF Index**: Best for large-scale datasets
+  - Memory efficient
+  - Good for batch processing
+  - Suitable for datasets that don't fit in memory
+
+## Common Use Cases
+
+### Semantic Search
+
+```sql
+-- Find semantically similar documents
+SELECT 
+    id,
+    doc,
+    l2_distance(embedding, '[0.9, 1.0, 0.9]') as distance
+FROM t1
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 10;
+```
+
+### Recommendation Systems
+
+```sql
+-- Find similar items with hybrid search
+SELECT 
+    id,
+    doc,
+    l2_distance(embedding, '[0.9, 1.0, 0.9]') as distance
+FROM t1
+WHERE category = 'technology'
+ORDER BY l2_distance(embedding, '[0.9, 1.0, 0.9]')
+APPROXIMATE
+LIMIT 20;
+```
+
+### RAG (Retrieval-Augmented Generation)
+
+```sql
+-- Retrieve relevant context for RAG applications
+SELECT 
+    id,
+    doc,
+    l2_distance(embedding, ?) as distance
+FROM documents
+ORDER BY l2_distance(embedding, ?)
+APPROXIMATE
+LIMIT 5;
+```
+
+## Resources
+
+- Vector Search Documentation: https://www.oceanbase.ai/docs/experience-vector-search
+- Python SDK: See pyseekdb documentation
+- Hybrid Search: See hybrid search documentation
+- AI Function Service: See AI function service documentation

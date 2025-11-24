@@ -1,0 +1,391 @@
+---
+description: Use these rules when working with hybrid vector indexes (semantic indexes) in seekDB that automatically convert text to vectors and build indexes
+globs: *.sql, *.py, *.ts, *.tsx
+alwaysApply: false
+---
+
+# seekDB Hybrid Vector Index Guidelines
+
+## Overview
+
+Hybrid vector index (also known as semantic index) is a powerful feature provided by seekDB that automatically converts text to vectors and builds indexes, making the vector concept transparent to users. This feature greatly simplifies the usage process of vector retrieval by eliminating the need for manual vectorization.
+
+### Key Benefits
+
+- **Simplified Workflow**: Achieve semantic retrieval by directly storing text without manually converting to vectors
+- **Automatic Embedding**: The system automatically converts text to vectors and builds indexes internally
+- **Transparent Vector Operations**: During retrieval, you only need to provide the original text, and the system automatically performs embedding and retrieves the vector index
+- **Performance Optimization**: Supports direct vector retrieval to avoid repeated embedding operations
+
+### Comparison
+
+**Traditional vector index process:**
+```
+Text → Manually call AI_EMBED function to generate vectors → Insert vectors → Use vector retrieval
+```
+
+**Hybrid vector index process:**
+```
+Text → Direct insertion → Direct text retrieval
+```
+
+## Prerequisites
+
+Before using hybrid vector indexes, ensure you have:
+
+1. **AI Function Service Permissions**: Ensure you have the relevant permissions for AI function service
+
+2. **Registered Embedding Model**: An embedding model must be registered in the database using the `CREATE_AI_MODEL` and `CREATE_AI_MODEL_ENDPOINT` procedures:
+
+```sql
+-- Drop existing model if needed
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL ('ob_embed');
+CALL DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT ('ob_embed_endpoint');
+
+-- Create AI model
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL(
+    'ob_embed', 
+    '{
+        "type": "dense_embedding",
+        "model_name": "BAAI/bge-m3"
+    }'
+);
+
+-- Create AI model endpoint
+CALL DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT (
+    'ob_embed_endpoint', 
+    '{
+        "ai_model_name": "ob_embed",
+        "url": "https://api.siliconflow.cn/v1/embeddings",
+        "access_key": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "provider": "siliconflow"
+    }'
+);
+```
+
+**Important Notes:**
+- The hybrid vector index feature currently only supports HNSW/HNSW_BQ index types
+- When creating a hybrid vector index, you must specify it on a `VARCHAR` column
+- You must specify the embedding model and vector dimension when creating the index
+
+## Creating Hybrid Vector Indexes
+
+Hybrid vector indexes support two creation methods: **create during table creation** and **create after table creation**.
+
+### Method 1: Create During Table Creation
+
+```sql
+CREATE TABLE items (
+    id INT PRIMARY KEY, 
+    doc VARCHAR(100),
+    VECTOR INDEX vector_idx(doc)
+    WITH (
+        distance=l2, 
+        lib=vsag, 
+        type=hnsw, 
+        model=ob_embed, 
+        dim=1024, 
+        sync_mode=immediate
+    )
+);
+```
+
+### Method 2: Create After Table Creation
+
+```sql
+-- First create the table
+CREATE TABLE items (
+    id INT PRIMARY KEY, 
+    doc VARCHAR(100)
+);
+
+-- Then create the hybrid vector index
+CREATE VECTOR INDEX vector_idx
+ON items (doc) 
+WITH (
+    distance=l2, 
+    lib=vsag, 
+    type=hnsw, 
+    model=ob_embed, 
+    dim=1024, 
+    sync_mode=immediate
+);
+```
+
+### Index Parameters
+
+- **distance**: Distance metric (l2, cosine, inner_product)
+- **lib**: Vector search library (vsag)
+- **type**: Index type (hnsw or hnsw_bq for hybrid vector indexes)
+- **model**: Name of the registered embedding model
+- **dim**: Vector dimension (must match the embedding model's output dimension)
+- **sync_mode**: Synchronization mode (immediate or deferred)
+
+## Inserting Text Data
+
+When inserting text data into a table with a hybrid vector index, the system automatically performs embedding without manually calling the `AI_EMBED` function:
+
+```sql
+INSERT INTO items(id, doc) VALUES(1, 'Rose');
+INSERT INTO items(id, doc) VALUES(2, 'Sunflower');
+INSERT INTO items(id, doc) VALUES(3, 'Lily');
+INSERT INTO items(id, doc) VALUES(4, 'Tulip');
+INSERT INTO items(id, doc) VALUES(5, 'Orchid');
+```
+
+The system automatically:
+1. Converts the text to vectors using the specified embedding model
+2. Stores the vectors in the index
+3. Maintains the original text in the VARCHAR column
+
+## Text-Based Retrieval
+
+Use the `semantic_distance` function to perform vector retrieval by passing in the original text, without manually generating query vectors:
+
+### Basic Semantic Search
+
+```sql
+SELECT id, doc 
+FROM items
+ORDER BY semantic_distance(doc, 'flower') 
+APPROXIMATE LIMIT 3;
+```
+
+**Result:**
+```
++----+-----------+
+| id | doc       |
++----+-----------+
+|  1 | Rose      |
+|  2 | Sunflower |
+|  3 | Lily      |
++----+-----------+
+3 rows in set
+```
+
+The system automatically:
+1. Converts the query text `'flower'` to a vector using the embedding model
+2. Searches the vector index for the most similar vectors
+3. Returns the corresponding text results sorted by similarity
+
+### Semantic Search with Filters
+
+```sql
+-- Combine semantic search with relational filters
+SELECT id, doc 
+FROM items
+WHERE id > 2
+ORDER BY semantic_distance(doc, 'flower') 
+APPROXIMATE LIMIT 3;
+```
+
+### Semantic Search with Threshold
+
+```sql
+-- Find items with semantic similarity above threshold
+SELECT id, doc, semantic_distance(doc, 'flower') as similarity
+FROM items
+WHERE semantic_distance(doc, 'flower') < 0.5
+ORDER BY similarity ASC;
+```
+
+## Advanced: Vector-Based Retrieval
+
+If you already have vector representations of the retrieval content (for example, pre-generated through the `AI_EMBED` function), you can directly use these vectors to retrieve hybrid vector indexes, avoiding repeated embedding operations:
+
+### Pre-compute Query Vector
+
+```sql
+-- First get the query vector
+SET @query_vector = AI_EMBED("ob_embed", "flower");
+```
+
+### Use Vector for Index Retrieval
+
+```sql
+-- Use vectors for index retrieval
+SELECT id, doc 
+FROM items
+ORDER BY semantic_vector_distance(doc, @query_vector) 
+APPROXIMATE LIMIT 3;
+```
+
+**Result:**
+```
++----+-----------+
+| id | doc       |
++----+-----------+
+|  1 | Rose      |
+|  2 | Sunflower |
+|  3 | Lily      |
++----+-----------+
+3 rows in set
+```
+
+### Benefits of Vector-Based Retrieval
+
+- **Performance**: Avoids repeated embedding operations for each query
+- **Consistency**: Use the same vector for multiple queries
+- **Batch Processing**: Pre-compute vectors for batch operations
+
+## Best Practices
+
+### 1. Model Selection
+
+- Choose embedding models that match your domain (e.g., multilingual models for international content)
+- Ensure the model dimension matches the `dim` parameter in the index
+- Test different models to find the best fit for your use case
+
+### 2. Index Configuration
+
+- Use `HNSW` for high-performance in-memory search
+- Use `HNSW_BQ` (Binary Quantization) to reduce memory usage while maintaining good search quality
+- Set appropriate `sync_mode` based on your consistency requirements:
+  - `immediate`: Ensures data is immediately searchable (slower inserts)
+  - `deferred`: Faster inserts, but data may not be immediately searchable
+
+### 3. Column Type
+
+- Always use `VARCHAR` columns for hybrid vector indexes
+- Choose appropriate VARCHAR length based on your text content
+- Consider text preprocessing before insertion if needed
+
+### 4. Query Optimization
+
+- Use `APPROXIMATE LIMIT` for approximate nearest neighbor search (faster)
+- Pre-compute query vectors when performing multiple searches with the same query
+- Combine semantic search with relational filters to narrow down results
+
+### 5. Performance Considerations
+
+- For high-frequency queries, consider caching query vectors
+- Monitor index size and memory usage
+- Rebuild indexes periodically if data distribution changes significantly
+
+## Common Patterns
+
+### Pattern 1: Simple Semantic Search
+
+```sql
+-- Create table with hybrid vector index
+CREATE TABLE documents (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    content VARCHAR(1000),
+    VECTOR INDEX idx_content(content)
+    WITH (distance=l2, lib=vsag, type=hnsw, model=ob_embed, dim=1024, sync_mode=immediate)
+);
+
+-- Insert documents
+INSERT INTO documents(content) VALUES 
+    ('Machine learning is a subset of artificial intelligence'),
+    ('Deep learning uses neural networks with multiple layers'),
+    ('Natural language processing enables computers to understand text');
+
+-- Search for semantically similar content
+SELECT id, content 
+FROM documents
+ORDER BY semantic_distance(content, 'artificial intelligence and neural networks') 
+APPROXIMATE LIMIT 3;
+```
+
+### Pattern 2: Hybrid Search with Hybrid Vector Index
+
+```sql
+-- Create table with both hybrid vector index and full-text index
+CREATE TABLE articles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(200),
+    content VARCHAR(5000),
+    VECTOR INDEX idx_content_vector(content)
+    WITH (distance=l2, lib=vsag, type=hnsw, model=ob_embed, dim=1024, sync_mode=immediate),
+    FULLTEXT INDEX idx_content_ft(content)
+);
+
+-- Use semantic search for semantic similarity
+SELECT id, title, content
+FROM articles
+WHERE MATCH(content) AGAINST('machine learning' IN NATURAL LANGUAGE MODE)
+ORDER BY semantic_distance(content, 'artificial intelligence') 
+APPROXIMATE LIMIT 10;
+```
+
+### Pattern 3: Batch Vector Pre-computation
+
+```sql
+-- Pre-compute query vectors for batch operations
+SET @query1 = AI_EMBED("ob_embed", "machine learning");
+SET @query2 = AI_EMBED("ob_embed", "deep learning");
+SET @query3 = AI_EMBED("ob_embed", "neural networks");
+
+-- Use pre-computed vectors for multiple queries
+SELECT id, content, semantic_vector_distance(content, @query1) as score1
+FROM documents
+ORDER BY score1 ASC
+APPROXIMATE LIMIT 5;
+
+SELECT id, content, semantic_vector_distance(content, @query2) as score2
+FROM documents
+ORDER BY score2 ASC
+APPROXIMATE LIMIT 5;
+```
+
+## Troubleshooting
+
+### Issue: Index Creation Fails
+
+**Problem**: Cannot create hybrid vector index
+
+**Solutions**:
+- Verify that the embedding model is registered and accessible
+- Ensure the model name matches exactly (case-sensitive)
+- Check that the vector dimension matches the model's output dimension
+- Verify that the column type is VARCHAR
+- Ensure you have the necessary permissions
+
+### Issue: Insert Operations Are Slow
+
+**Problem**: Inserting data into tables with hybrid vector indexes is slow
+
+**Solutions**:
+- Use `sync_mode=deferred` for faster inserts (trade-off: data may not be immediately searchable)
+- Batch insert operations when possible
+- Consider using transactions for multiple inserts
+
+### Issue: Search Results Are Inaccurate
+
+**Problem**: Semantic search doesn't return expected results
+
+**Solutions**:
+- Verify the embedding model is appropriate for your domain
+- Check that the text data is properly formatted
+- Try different distance metrics (l2, cosine, inner_product)
+- Adjust the limit and threshold parameters
+- Consider preprocessing text before insertion
+
+### Issue: Memory Usage Is High
+
+**Problem**: Hybrid vector indexes consume too much memory
+
+**Solutions**:
+- Use `HNSW_BQ` (Binary Quantization) instead of `HNSW` to reduce memory usage
+- Reduce the `m` parameter in HNSW index (if configurable)
+- Consider splitting data across multiple tables
+- Monitor and optimize index parameters
+
+## Summary
+
+Hybrid vector indexes in seekDB provide a simplified and powerful way to perform semantic search:
+
+- **Automatic Vectorization**: No need to manually convert text to vectors
+- **Transparent Operations**: Work with text directly, vectors are handled internally
+- **Flexible Retrieval**: Support both text-based and vector-based retrieval
+- **Performance Optimized**: Avoid repeated embedding operations when using pre-computed vectors
+
+The hybrid vector index feature greatly simplifies the usage process of vector retrieval and is an ideal choice for building intelligent search applications, RAG systems, and semantic search solutions.
+
+## Related Topics
+
+- [Vector Search Guidelines](./seekdb-vector-search.mdc) - For traditional vector operations
+- [Hybrid Search Guidelines](./seekdb-hybrid-search.mdc) - For combining vector and full-text search
+- [AI Functions Guidelines](./seekdb-ai-functions.mdc) - For AI function service and embedding models
+- [Core Guidelines](./seekdb-core.mdc) - For general seekDB usage

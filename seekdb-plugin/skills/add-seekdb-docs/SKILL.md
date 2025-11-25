@@ -46,8 +46,8 @@ References are added to a "Resources & References" section in your AI documentat
 ```markdown
 ## Resources & References
 
-- **seekDB Core Guidelines**:./docs/seekdb-core.mdc
-- **seekDB SQL Reference**:./docs/seekdb-sql.mdc
+- **seekDB Core Guidelines**:~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **seekDB SQL Reference**:~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
 ```
 
 ### Target Files (in priority order):

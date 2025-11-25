@@ -156,57 +156,6 @@ Add seekDB Python SDK references
 
 </details>
 
-## ⚙️ 配置说明
-
-### 更新文档 URL
-
-在使用技能之前，**必须**更新 `skill-knowledge-map.json` 中的 URL，使其指向实际的文档位置。
-
-**配置文件位置：** `seekdb-plugin/skills/add-seekdb-docs/skill-knowledge-map.json`
-
-#### 选项 1: GitHub 仓库
-
-如果你的文档在 GitHub 仓库中：
-
-```json
-{
-  "seekdb-core": {
-    "files": [{
-      "url": "./docs/seekdb-core.mdc"
-    }]
-  }
-}
-```
-
-#### 选项 2: 本地文件
-
-如果文档在本地，使用相对路径：
-
-```json
-{
-  "seekdb-core": {
-    "files": [{
-      "url": "./docs/seekdb-core.mdc"
-    }]
-  }
-}
-```
-
-或使用绝对路径：
-
-```json
-{
-  "seekdb-core": {
-    "files": [{
-      "url": "/path/to/docs/seekdb-core.mdc"
-    }]
-  }
-}
-```
-
-#### 选项 3: 其他托管方式
-
-如果文档托管在其他地方（如 CDN、S3），使用相应的 URL 格式。
 
 ## 📝 使用示例
 
@@ -217,7 +166,7 @@ Add seekDB Python SDK references
 ```markdown
 ## Resources & References
 
-- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: ./docs/seekdb-core.mdc
+- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
 ```
 
 ### 示例 2: 添加完整文档集
@@ -227,13 +176,13 @@ Add seekDB Python SDK references
 ```markdown
 ## Resources & References
 
-- **Core guidelines and overview**: ./docs/seekdb-core.mdc
-- **Complete SQL syntax reference**: ./docs/seekdb-sql.mdc
-- **Python SDK usage guide**: ./docs/seekdb-python-sdk.mdc
-- **Vector search and similarity operations**: ./docs/seekdb-vector-search.mdc
-- **Hybrid search patterns**: ./docs/seekdb-hybrid-search.mdc
-- **Built-in AI functions**: ./docs/seekdb-ai-functions.mdc
-- **Hybrid vector index (semantic index) that automatically converts text to vectors**: ./docs/seekdb-hybrid-vector-index.mdc
+- **Core guidelines and overview**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **Complete SQL syntax reference**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
+- **Python SDK usage guide**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-python-sdk.mdc
+- **Vector search and similarity operations**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-vector-search.mdc
+- **Hybrid search patterns**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-search.mdc
+- **Built-in AI functions**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-ai-functions.mdc
+- **Hybrid vector index (semantic index) that automatically converts text to vectors**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-vector-index.mdc
 ```
 
 ## 🔧 工作流程
@@ -271,7 +220,7 @@ Add seekDB Python SDK references
     "displayName": "Custom seekDB Documentation",
     "files": [
       {
-        "url": "./docs/custom.mdc",
+        "url": "~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/custom.mdc",
         "filename": "custom.mdc",
         "required": true,
         "description": "Custom seekDB documentation"

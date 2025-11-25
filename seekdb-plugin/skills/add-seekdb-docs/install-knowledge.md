@@ -30,10 +30,17 @@ Use the Read tool to read the local file, then parse the JSON content.
 Extract the metadata for the current `SKILL_NAME` from the JSON.
 
 Store this information - you'll need:
-- `displayName`: Human-readable skill name
+- `displayName`: Human-readable skill name (used only for display purposes, NOT for creating file references)
 - `files`: Array of .mdc files (each with `url`, `filename`, `description`)
 
-**CRITICAL**: For each file in the `files` array, you MUST use the exact `url` value from the JSON. DO NOT generate, guess, or create URLs. The `url` field contains the exact path that should be written to the documentation file (e.g., `"~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"`).
+**CRITICAL RULES**:
+1. You MUST iterate through the `files` array and create a reference for EACH file in the array
+2. For each file, use the exact `url` value from the JSON - DO NOT generate, guess, or create URLs
+3. For each file, use the exact `description` value from the JSON - DO NOT use `displayName` as a file description
+4. DO NOT create a single reference based on `displayName` or skill name (e.g., do NOT create "seekdb-all.mdc" - instead, list all files in the `files` array)
+5. The `url` field contains the exact path that should be written to the documentation file (e.g., `"~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"`)
+
+**Example**: If `seekdb-all` has 7 files in the `files` array, you must create 7 separate references, one for each file. DO NOT create a single "seekdb-all.mdc" reference.
 
 If the skill is not found in metadata, inform the user and exit.
 
@@ -93,9 +100,13 @@ I've prepared to add **${displayName}** best practices references to your projec
 **Target location:** ${detected_location or "Will create CLAUDE.md"}
 
 **References to add:**
-${list each file with a bullet point showing the description and the exact URL from the JSON file}
+${For EACH file in the files array, list with a bullet point showing the file's description and the exact URL from the JSON file. DO NOT create a single entry based on displayName.}
 
-**IMPORTANT**: The URLs shown above are the exact values from the skill metadata. These will be written to your documentation file exactly as shown - they are local file paths that Claude Code can access, not web URLs.
+**IMPORTANT**: 
+- The URLs shown above are the exact values from the skill metadata
+- Each file in the `files` array will be listed separately
+- These will be written to your documentation file exactly as shown - they are local file paths that Claude Code can access, not web URLs
+- DO NOT create a single "all" file reference - each file must be listed individually
 
 This helps your AI assistant reference seekDB best practices automatically in future conversations without cluttering your project with large documentation files.
 
@@ -113,31 +124,42 @@ If the user declines or asks to skip, thank them and exit the workflow gracefull
 
 ### 4.1 Build the reference content
 
-**CRITICAL**: You MUST use the exact `url` value from the JSON metadata file. DO NOT generate, guess, or create URLs. DO NOT convert local paths to GitHub URLs. Use the `url` field exactly as it appears in `skill-knowledge-map.json`.
+**CRITICAL RULES**:
+1. You MUST iterate through EVERY file in the `files` array from the JSON metadata
+2. For EACH file in the array, create a separate reference line
+3. Use the exact `url` value from each file object - DO NOT generate, guess, or create URLs
+4. Use the exact `description` value from each file object - DO NOT use `displayName` or skill name
+5. DO NOT create a single reference based on `displayName` (e.g., if skill is "seekdb-all", do NOT create "seekdb-all.mdc" - instead list all files from the `files` array)
+6. DO NOT convert local paths to GitHub URLs
 
-For each file in the metadata `files` array, create a reference line using the exact `url` from the JSON:
+**Process**:
+1. Loop through each object in the `files` array
+2. For each file object, extract:
+   - `file.description` - the description field (e.g., "Core guidelines and overview")
+   - `file.url` - the url field (e.g., `"~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"`)
+3. Create a reference line for EACH file:
 
 ```markdown
 - **${file.description}**: ${file.url}
 ```
 
-Where:
-- `${file.description}` comes from the `description` field in the JSON
-- `${file.url}` comes from the `url` field in the JSON (use it EXACTLY as written, e.g., `"~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"`)
-
-Combine all references into a section:
+**Example**: If the skill has a `files` array with 3 files, you must create 3 separate references:
 
 ```markdown
 ## Resources & References
 
-- **${file1.description}**: ${file1.url}
-- **${file2.description}**: ${file2.url}
+- **Core guidelines and overview**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **Complete SQL syntax reference**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
+- **Python SDK usage guide**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-python-sdk.mdc
 ```
 
-**Example of correct format:**
+**WRONG**: Creating a single reference like:
 ```markdown
-- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **All seekDB documentation files**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-all.mdc
 ```
+This is WRONG because:
+- There is no "seekdb-all.mdc" file
+- You must list each file from the `files` array separately
 
 **DO NOT create GitHub URLs or any other URLs - use only the `url` values from the JSON file.**
 
@@ -191,7 +213,7 @@ Build a completion message:
 Location: ${target_location}
 
 References added:
-${list each reference with title and URL}
+${list EACH file from the files array with its description and URL - one line per file. DO NOT create a single "all" entry based on displayName.}
 
 ---
 

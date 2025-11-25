@@ -74,7 +74,7 @@ The skill can install references for:
 - **seekdb-hybrid-search** - Hybrid search patterns
 - **seekdb-hybrid-vector-index** - Hybrid vector index (semantic index) that automatically converts text to vectors
 - **seekdb-ai-functions** - Built-in AI functions
-- **seekdb-all** - All seekDB documentation files
+- **seekdb-all** - All seekDB documentation files (adds references for all individual files, not a single "all" file)
 
 ## Workflow Reference
 

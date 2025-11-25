@@ -214,11 +214,6 @@ ${end if}
 - Suggest closing editors or checking file permissions
 - Provide the reference links for manual addition
 
-### If URL is not accessible
-- Inform user that the URL might need to be updated
-- Suggest checking the repository URL in `skill-knowledge-map.json`
-- Provide the reference links for manual addition
-
 ---
 
 ## Testing This Workflow
@@ -252,7 +247,7 @@ Setup is complete! Would you like me to add seekDB best practices reference link
 
 This helps your AI assistant (me!) remember where to find seekDB patterns for future conversations.
 
-${Execute workflow: seekdb/add-seekdb-docs/install-knowledge.md with SKILL_NAME="seekdb-core"}
+${Execute workflow: ./add-seekdb-docs/install-knowledge.md with SKILL_NAME="seekdb-core"}
 ```
 
 Or explicitly call it:
@@ -260,24 +255,9 @@ Or explicitly call it:
 ```markdown
 I'll now add reference links to help you in future conversations.
 
-${Read and execute: seekdb/add-seekdb-docs/install-knowledge.md}
+${Read and execute: ./add-seekdb-docs/install-knowledge.md}
 ${Set SKILL_NAME = "seekdb-all"}
 ```
 
 ---
-
-## Note on URLs
-
-The URLs in `skill-knowledge-map.json` use placeholder GitHub repository paths:
-```
-https://raw.githubusercontent.com/your-org/ai-rules/main/seekdb/...
-```
-
-**Before using this skill, update the URLs in `skill-knowledge-map.json` to match your actual repository location:**
-
-1. If files are in a GitHub repository, replace `your-org/ai-rules` with your actual org/repo
-2. If files are local only, you can use relative paths like `./seekdb/seekdb-core.mdc` or absolute file paths
-3. If files are hosted elsewhere, update URLs accordingly
-
-The skill will work with any accessible URL or local file path.
 

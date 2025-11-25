@@ -82,40 +82,118 @@ seekdb-claude-skill-plugin/
 
 ### Cursor 用户
 
-**1. Clone 仓库：**
+我们提供了自动化脚本来帮助你快速设置 seekDB 规则。
 
-首先需要 clone 本仓库到本地：
+#### 方式 1：使用自动化脚本（推荐）
+
+**对于 macOS / Linux 用户：**
 
 ```bash
+# Clone 仓库并进入目录
 git clone https://github.com/davidzhangbj/seekdb-claude-skill-plugin.git
 cd seekdb-claude-skill-plugin
+
+# 运行设置脚本（会自动复制所有 .mdc 文件）
+./setup-cursor.sh --all
 ```
 
-**2. 创建规则目录：**
-
-在你的项目目录中创建规则目录：
+**对于 Windows 用户：**
 
 ```bash
+# Clone 仓库并进入目录
+git clone https://github.com/davidzhangbj/seekdb-claude-skill-plugin.git
+cd seekdb-claude-skill-plugin
+
+# 运行设置脚本（会自动复制所有 .mdc 文件）
+setup-cursor.bat --all
+```
+
+#### 脚本选项
+
+可以选择只复制特定的文档集：
+
+```bash
+# macOS / Linux
+./setup-cursor.sh --core                    # 仅复制核心指南
+./setup-cursor.sh --sql                     # 仅复制 SQL 语法参考
+./setup-cursor.sh --python                  # 仅复制 Python SDK 指南
+./setup-cursor.sh --vector                  # 仅复制向量搜索指南
+./setup-cursor.sh --hybrid                  # 仅复制混合搜索指南
+./setup-cursor.sh --ai-functions            # 仅复制 AI 函数指南
+./setup-cursor.sh --all                     # 复制所有文档（默认）
+
+# Windows
+setup-cursor.bat --core
+setup-cursor.bat --sql
+# ... 同上
+```
+
+#### 方式 2：手动复制（如果脚本不可用）
+
+如果自动化脚本不可用，你也可以手动复制：
+
+```bash
+# Clone 仓库
+git clone https://github.com/davidzhangbj/seekdb-claude-skill-plugin.git
+cd seekdb-claude-skill-plugin
+
+# 创建规则目录
 mkdir -p .cursor/rules
-```
 
-**3. 复制所需的 `.mdc` 文件：**
-
-从 clone 的仓库中复制所需的文档文件到你的项目：
-
-```bash
-# 示例：复制核心文档和 SQL 语法文档
+# 复制所需的 .mdc 文件
 cp seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc .cursor/rules/
 cp seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc .cursor/rules/
+# ... 复制其他需要的文件
 ```
 
-**4. 开始编码：**
+#### 完成设置
 
-Cursor 会在你引用 seekDB 时自动应用这些规则。
+复制完成后：
+
+1. 重新打开或刷新 Cursor IDE
+2. Cursor 会自动在 `.cursor/rules` 目录中检测到 seekDB 规则文件
+3. 开始在你的项目中使用 seekDB！
 
 ### 其他 AI 工具
 
 将 `.mdc` 文件复制到你的 AI 工具的自定义规则目录。该格式是工具无关的，适用于任何支持上下文规则的 AI 助手。
+
+## 🔧 设置脚本说明
+
+项目包含了自动化脚本，用于快速将 seekDB 文档规则添加到你的项目。
+
+### setup-cursor.sh（macOS / Linux）
+
+```bash
+./setup-cursor.sh [OPTION]
+```
+
+**主要功能：**
+- 自动创建 `.cursor/rules` 目录
+- 复制选定的 `.mdc` 文档文件
+- 验证复制成功
+- 显示使用说明
+
+**示例：**
+```bash
+./setup-cursor.sh --all                # 复制所有文档
+./setup-cursor.sh --core --sql         # 仅复制核心和 SQL 文档
+./setup-cursor.sh --help               # 显示帮助信息
+```
+
+### setup-cursor.bat（Windows）
+
+```bash
+setup-cursor.bat [OPTION]
+```
+
+**功能与 shell 脚本相同，用法相同。**
+
+**示例：**
+```bash
+setup-cursor.bat --all                 # 复制所有文档
+setup-cursor.bat --core --sql          # 仅复制核心和 SQL 文档
+```
 
 ## 📚 技能参考
 

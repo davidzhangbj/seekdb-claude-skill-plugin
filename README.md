@@ -172,7 +172,7 @@ Add seekDB Python SDK references
 {
   "seekdb-core": {
     "files": [{
-      "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"
+      "url": "./docs/seekdb-core.mdc"
     }]
   }
 }
@@ -217,7 +217,7 @@ Add seekDB Python SDK references
 ```markdown
 ## Resources & References
 
-- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: ./docs/seekdb-core.mdc
 ```
 
 ### 示例 2: 添加完整文档集
@@ -227,13 +227,13 @@ Add seekDB Python SDK references
 ```markdown
 ## Resources & References
 
-- **Core guidelines and overview**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
-- **Complete SQL syntax reference**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
-- **Python SDK usage guide**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-python-sdk.mdc
-- **Vector search and similarity operations**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-vector-search.mdc
-- **Hybrid search patterns**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-search.mdc
-- **Built-in AI functions**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-ai-functions.mdc
-- **Hybrid vector index (semantic index) that automatically converts text to vectors**: https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-vector-index.mdc
+- **Core guidelines and overview**: ./docs/seekdb-core.mdc
+- **Complete SQL syntax reference**: ./docs/seekdb-sql.mdc
+- **Python SDK usage guide**: ./docs/seekdb-python-sdk.mdc
+- **Vector search and similarity operations**: ./docs/seekdb-vector-search.mdc
+- **Hybrid search patterns**: ./docs/seekdb-hybrid-search.mdc
+- **Built-in AI functions**: ./docs/seekdb-ai-functions.mdc
+- **Hybrid vector index (semantic index) that automatically converts text to vectors**: ./docs/seekdb-hybrid-vector-index.mdc
 ```
 
 ## 🔧 工作流程
@@ -271,7 +271,7 @@ Add seekDB Python SDK references
     "displayName": "Custom seekDB Documentation",
     "files": [
       {
-        "url": "https://example.com/custom.mdc",
+        "url": "./docs/custom.mdc",
         "filename": "custom.mdc",
         "required": true,
         "description": "Custom seekDB documentation"

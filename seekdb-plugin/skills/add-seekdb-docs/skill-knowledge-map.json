@@ -3,7 +3,7 @@
     "displayName": "seekDB Core Guidelines",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc",
+        "url": "./docs/seekdb-core.mdc",
         "filename": "seekdb-core.mdc",
         "required": true,
         "description": "Core guidelines, overview, deployment modes, and basic operations for seekDB"
@@ -15,7 +15,7 @@
     "displayName": "seekDB SQL Reference",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc",
+        "url": "./docs/seekdb-sql.mdc",
         "filename": "seekdb-sql.mdc",
         "required": true,
         "description": "Complete SQL syntax reference including vector, full-text, JSON, and hybrid queries"
@@ -27,7 +27,7 @@
     "displayName": "seekDB Python SDK",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-python-sdk.mdc",
+        "url": "./docs/seekdb-python-sdk.mdc",
         "filename": "seekdb-python-sdk.mdc",
         "required": true,
         "description": "Python SDK usage guide for embedded and client/server modes"
@@ -39,7 +39,7 @@
     "displayName": "seekDB Vector Search",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-vector-search.mdc",
+        "url": "./docs/seekdb-vector-search.mdc",
         "filename": "seekdb-vector-search.mdc",
         "required": true,
         "description": "Vector search, similarity search, and embedding operations"
@@ -51,7 +51,7 @@
     "displayName": "seekDB Hybrid Search",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-search.mdc",
+        "url": "./docs/seekdb-hybrid-search.mdc",
         "filename": "seekdb-hybrid-search.mdc",
         "required": true,
         "description": "Hybrid search combining vector, full-text, and relational queries"
@@ -63,7 +63,7 @@
     "displayName": "seekDB AI Functions",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-ai-functions.mdc",
+        "url": "./docs/seekdb-ai-functions.mdc",
         "filename": "seekdb-ai-functions.mdc",
         "required": true,
         "description": "Built-in AI functions for embedding, completion, and reranking"
@@ -75,7 +75,7 @@
     "displayName": "seekDB Hybrid Vector Index",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-vector-index.mdc",
+        "url": "./docs/seekdb-hybrid-vector-index.mdc",
         "filename": "seekdb-hybrid-vector-index.mdc",
         "required": true,
         "description": "Hybrid vector index (semantic index) that automatically converts text to vectors and builds indexes"
@@ -87,43 +87,43 @@
     "displayName": "seekDB Complete Documentation",
     "files": [
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc",
+        "url": "./docs/seekdb-core.mdc",
         "filename": "seekdb-core.mdc",
         "required": true,
         "description": "Core guidelines and overview"
       },
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc",
+        "url": "./docs/seekdb-sql.mdc",
         "filename": "seekdb-sql.mdc",
         "required": true,
         "description": "Complete SQL syntax reference"
       },
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-python-sdk.mdc",
+        "url": "./docs/seekdb-python-sdk.mdc",
         "filename": "seekdb-python-sdk.mdc",
         "required": true,
         "description": "Python SDK usage guide"
       },
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-vector-search.mdc",
+        "url": "./docs/seekdb-vector-search.mdc",
         "filename": "seekdb-vector-search.mdc",
         "required": false,
         "description": "Vector search and similarity operations"
       },
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-search.mdc",
+        "url": "./docs/seekdb-hybrid-search.mdc",
         "filename": "seekdb-hybrid-search.mdc",
         "required": false,
         "description": "Hybrid search patterns"
       },
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-ai-functions.mdc",
+        "url": "./docs/seekdb-ai-functions.mdc",
         "filename": "seekdb-ai-functions.mdc",
         "required": false,
         "description": "Built-in AI functions"
       },
       {
-        "url": "https://raw.githubusercontent.com/davidzhangbj/seekdb-claude-skill-plugin/refs/heads/main/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-hybrid-vector-index.mdc",
+        "url": "./docs/seekdb-hybrid-vector-index.mdc",
         "filename": "seekdb-hybrid-vector-index.mdc",
         "required": false,
         "description": "Hybrid vector index (semantic index) that automatically converts text to vectors"

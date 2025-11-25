@@ -31,9 +31,9 @@ Cursor 应该能够根据规则文件生成正确的 seekDB SQL 代码。
 ```markdown
 ## Resources & References
 
-- **seekDB Core Guidelines**: ./seekdb/seekdb-core.mdc
-- **seekDB SQL Reference**: ./seekdb/seekdb-sql.mdc
-- **seekDB Python SDK**: ./seekdb/seekdb-python-sdk.mdc
+- **seekDB Core Guidelines**: ./docs/seekdb-core.mdc
+- **seekDB SQL Reference**: ./docs/seekdb-sql.mdc
+- **seekDB Python SDK**: ./docs/seekdb-python-sdk.mdc
 - **seekDB Official Documentation**: https://www.oceanbase.ai/docs/
 ```
 

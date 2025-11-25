@@ -12,43 +12,6 @@ The `add-seekdb-docs` skill is for seekDB documentation. It allows you to easily
 - **`skill-knowledge-map.json`** - Metadata mapping skill names to documentation URLs
 - **`install-knowledge.md`** - Detailed workflow for installing references
 
-## Configuration
-
-### Important: Update URLs
-
-Before using this skill, you **must** update the URLs in `skill-knowledge-map.json` to match your actual repository or file locations.
-
-The default URLs use a placeholder:
-```json
-"url": "https://raw.githubusercontent.com/your-org/ai-rules/main/seekdb/seekdb-core.mdc"
-```
-
-### Option 1: GitHub Repository
-
-If your files are in a GitHub repository, replace `your-org/ai-rules` with your actual organization and repository:
-
-```json
-"url": "https://raw.githubusercontent.com/oceanbase/ai-rules/main/seekdb/seekdb-core.mdc"
-```
-
-### Option 2: Local Files
-
-If files are local, you can use relative paths:
-
-```json
-"url": "./docs/seekdb-core.mdc"
-```
-
-Or absolute paths:
-
-```json
-"url": "/path/to/seekdb/seekdb-core.mdc"
-```
-
-### Option 3: Other Hosting
-
-If files are hosted elsewhere (e.g., CDN, S3), use the appropriate URL format.
-
 ## Available Documentation Sets
 
 The skill supports installing references for:

@@ -41,14 +41,16 @@ Execute the add-seekdb-docs skill with SKILL_NAME="seekdb-core"
 
 ## What Gets Added
 
-References are added to a "Resources & References" section in your AI documentation file:
+References are added to a "Resources & References" section in your AI documentation file. The URLs are taken directly from `skill-knowledge-map.json` and written exactly as specified:
 
 ```markdown
 ## Resources & References
 
-- **seekDB Core Guidelines**:~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
-- **seekDB SQL Reference**:~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
+- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+- **Complete SQL syntax reference including vector, full-text, JSON, and hybrid queries**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-sql.mdc
 ```
+
+**Note**: The URLs are local file paths that Claude Code can access directly. They are NOT web URLs and should NOT be converted to GitHub links or any other format.
 
 ### Target Files (in priority order):
 - `CLAUDE.md` - Most common for Claude Code projects

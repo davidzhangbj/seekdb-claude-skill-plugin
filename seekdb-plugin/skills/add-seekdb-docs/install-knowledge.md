@@ -33,6 +33,8 @@ Store this information - you'll need:
 - `displayName`: Human-readable skill name
 - `files`: Array of .mdc files (each with `url`, `filename`, `description`)
 
+**CRITICAL**: For each file in the `files` array, you MUST use the exact `url` value from the JSON. DO NOT generate, guess, or create URLs. The `url` field contains the exact path that should be written to the documentation file (e.g., `"~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"`).
+
 If the skill is not found in metadata, inform the user and exit.
 
 ---
@@ -91,7 +93,9 @@ I've prepared to add **${displayName}** best practices references to your projec
 **Target location:** ${detected_location or "Will create CLAUDE.md"}
 
 **References to add:**
-${list each file with a bullet point showing the description and URL}
+${list each file with a bullet point showing the description and the exact URL from the JSON file}
+
+**IMPORTANT**: The URLs shown above are the exact values from the skill metadata. These will be written to your documentation file exactly as shown - they are local file paths that Claude Code can access, not web URLs.
 
 This helps your AI assistant reference seekDB best practices automatically in future conversations without cluttering your project with large documentation files.
 
@@ -109,11 +113,17 @@ If the user declines or asks to skip, thank them and exit the workflow gracefull
 
 ### 4.1 Build the reference content
 
-For each file in the metadata, create a reference line:
+**CRITICAL**: You MUST use the exact `url` value from the JSON metadata file. DO NOT generate, guess, or create URLs. DO NOT convert local paths to GitHub URLs. Use the `url` field exactly as it appears in `skill-knowledge-map.json`.
+
+For each file in the metadata `files` array, create a reference line using the exact `url` from the JSON:
 
 ```markdown
-- **${description}**: ${url}
+- **${file.description}**: ${file.url}
 ```
+
+Where:
+- `${file.description}` comes from the `description` field in the JSON
+- `${file.url}` comes from the `url` field in the JSON (use it EXACTLY as written, e.g., `"~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc"`)
 
 Combine all references into a section:
 
@@ -123,6 +133,13 @@ Combine all references into a section:
 - **${file1.description}**: ${file1.url}
 - **${file2.description}**: ${file2.url}
 ```
+
+**Example of correct format:**
+```markdown
+- **Core guidelines, overview, deployment modes, and basic operations for seekDB**: ~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/seekdb-core.mdc
+```
+
+**DO NOT create GitHub URLs or any other URLs - use only the `url` values from the JSON file.**
 
 ### 4.2 Check if "Resources & References" section exists
 

@@ -73,7 +73,7 @@ To add a new documentation set, edit `skill-knowledge-map.json`:
     "displayName": "Custom seekDB Documentation",
     "files": [
       {
-        "url": "https://example.com/custom.mdc",
+        "url": "~/.claude/plugins/marketplaces/seekdb-marketplace/seekdb-plugin/skills/add-seekdb-docs/docs/custom.mdc",
         "filename": "custom.mdc",
         "required": true,
         "description": "Custom seekDB documentation"
